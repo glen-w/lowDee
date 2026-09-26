@@ -272,22 +272,22 @@ function hand(opts: HandOpts): string {
   return `<g transform="translate(${n(opts.x)} ${n(opts.y)}) rotate(${n(rot)}) scale(${n(flip * sc)} ${n(sc)})">${handInner(opts)}</g>`;
 }
 
-/** Other hand, reduced to a pinch. Origin is the fingertips. */
+/** Other hand, reduced to a pinch. Origin is where the fingers take hold. */
 function pinch(x: number, y: number, rot: number): string {
-  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot)})"><rect x="-6.5" y="-6" width="13" height="38" rx="6.5" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/><rect x="-6" y="-4" width="12" height="34" rx="6" fill="${HELP}" stroke="${INK}" stroke-width="1.6" transform="rotate(36)"/><rect x="-7" y="16" width="22" height="16" rx="8" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/></g>`;
+  return `<g transform="translate(${n(x)} ${n(y)}) rotate(${n(rot)})"><rect x="-5" y="-34" width="10" height="32" rx="5" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/><rect x="3" y="-30" width="9" height="28" rx="4.5" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/><g transform="rotate(62)"><rect x="-5" y="-4" width="10" height="26" rx="5" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/></g><ellipse cx="8" cy="10" rx="15" ry="11" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/></g>`;
 }
 
 function sideInner(open: boolean, fill: string, hot: boolean): string {
   const stroke = hot ? BRASS : INK;
   const sw = hot ? 2.2 : 1.7;
   if (!open) {
-    return `<ellipse cx="26" cy="1" rx="23" ry="18" fill="${fill}" stroke="${INK}" stroke-width="1.75"/><ellipse cx="12" cy="-14" rx="9" ry="7.5" fill="${fill}" stroke="${INK}" stroke-width="1.6"/><path d="M16 0 C24 5 32 5 38 0" fill="none" stroke="${CREASE}" stroke-width="1.2" stroke-linecap="round"/>`;
+    return `<ellipse cx="36" cy="0" rx="26" ry="20" fill="${fill}" stroke="${INK}" stroke-width="1.75"/><ellipse cx="16" cy="-16" rx="10" ry="8" fill="${fill}" stroke="${INK}" stroke-width="1.6"/><path d="M22 -2 C32 4 42 4 50 -2" fill="none" stroke="${CREASE}" stroke-width="1.2" stroke-linecap="round"/>`;
   }
   const slots = [
-    { y: -17, w: 20, h: 7 },
-    { y: -9, w: 26, h: 7 },
-    { y: -1, w: 23, h: 7 },
-    { y: 7, w: 16, h: 6 },
+    { y: -18, w: 30, h: 8 },
+    { y: -9, w: 36, h: 8 },
+    { y: 0, w: 32, h: 8 },
+    { y: 9, w: 24, h: 7 },
   ];
   const fingers = slots
     .map(
@@ -335,14 +335,14 @@ function drawShake(): string {
 }
 
 function drawRise(up: boolean): string {
-  const wristX = 268;
+  const wristX = 292;
   const wristY = 108;
   return (
-    ledge(36, 250, 121) +
-    limb(58, wristY, wristX, wristY, 26, SKIN) +
+    ledge(28, 268, 121) +
+    limb(48, wristY, wristX - 6, wristY, 22, SKIN) +
     (up
-      ? sideHand(wristX, wristY, -68, false)
-      : sideHand(wristX, wristY, 78, true, SKIN, true))
+      ? sideHand(wristX, wristY, -102, false)
+      : sideHand(wristX, wristY, 96, true, SKIN, true))
   );
 }
 
@@ -368,7 +368,7 @@ function drawOneFinger(mark: string): string {
   const digit = digitFrom(mark) ?? "index";
   const opts: HandOpts = {
     x: 214,
-    y: 176,
+    y: 150,
     scale: 0.92,
     arm: true,
     focus: { digit, pose: "back" },
@@ -379,32 +379,32 @@ function drawOneFinger(mark: string): string {
 }
 
 function drawWristUp(): string {
-  const wristX = 286;
-  const wristY = 118;
-  const angle = -148;
-  const tip = along(wristX, wristY, angle, 74);
-  const pull = along(wristX, wristY, angle, 36);
+  const wristX = 268;
+  const wristY = 148;
+  const angle = -118;
+  const tip = along(wristX, wristY, angle, 86);
+  const back = along(wristX, wristY, angle - 16, 28);
   return (
-    limb(70, 156, 170, 132, 26, SKIN) +
-    limb(170, 132, wristX, wristY, 24, SKIN) +
+    limb(36, 176, 140, 162, 22, SKIN) +
+    limb(140, 162, wristX, wristY, 20, SKIN) +
     sideHand(wristX, wristY, angle, true, SKIN, true) +
-    pinch(tip.x - 6, tip.y + 4, -20) +
-    arrow(tip.x + 8, tip.y - 16, pull.x, pull.y - 8)
+    pinch(tip.x - 4, tip.y - 8, 24) +
+    arrow(tip.x + 22, tip.y - 6, back.x + 8, back.y - 18)
   );
 }
 
 function drawWristDown(): string {
-  const wristX = 250;
-  const wristY = 78;
-  const angle = 112;
-  const tip = along(wristX, wristY, angle, 72);
-  const further = along(wristX, wristY, angle + 18, 98);
+  const wristX = 236;
+  const wristY = 62;
+  const angle = 108;
+  const tip = along(wristX, wristY, angle, 78);
+  const further = along(wristX, wristY, angle + 14, 118);
   return (
-    limb(48, 92, 150, 78, 26, SKIN) +
-    limb(150, 78, wristX, wristY, 24, SKIN) +
+    limb(28, 96, 120, 74, 22, SKIN) +
+    limb(120, 74, wristX, wristY, 20, SKIN) +
     sideHand(wristX, wristY, angle, true, SKIN, true) +
-    pinch(tip.x + 8, tip.y - 6, 70) +
-    arrow(tip.x - 4, tip.y + 6, further.x, further.y)
+    pinch(tip.x + 26, tip.y + 4, 16) +
+    arrow(tip.x + 6, tip.y + 10, further.x, further.y)
   );
 }
 
@@ -419,28 +419,29 @@ function drawPrayer(): string {
   );
 }
 
+function claspFinger(x: number, y: number, h: number, w: number, fill: string): string {
+  return `<rect x="${n(x)}" y="${n(y - h)}" width="${n(w)}" height="${n(h)}" rx="${n(w / 2)}" fill="${fill}" stroke="${INK}" stroke-width="1.6"/>`;
+}
+
 function weaveClasp(cx: number, cy: number, s: number): string {
+  const gap = 18 * s;
+  const w = 12 * s;
   const parts: string[] = [];
   for (let i = 0; i < 4; i++) {
-    const x = cx - 40 * s + i * 20 * s;
-    const h = (58 - (i === 0 || i === 3 ? 10 : 0)) * s;
-    const lean = -16;
-    parts.push(
-      `<g transform="translate(${n(x)} ${n(cy)}) rotate(${lean})"><rect x="${n(-6 * s)}" y="${n(-h)}" width="${n(12 * s)}" height="${n(h)}" rx="${n(6 * s)}" fill="${SKIN}" stroke="${INK}" stroke-width="1.6"/></g>`,
-    );
+    const x = cx - gap * 1.5 + i * gap - w / 2;
+    const h = (i === 0 || i === 3 ? 52 : 66) * s;
+    parts.push(claspFinger(x, cy, h, w, SKIN));
   }
-  for (let i = 0; i < 4; i++) {
-    const x = cx - 30 * s + i * 20 * s;
-    const h = (52 - (i === 3 ? 8 : 0)) * s;
-    parts.push(
-      `<g transform="translate(${n(x)} ${n(cy - 4 * s)}) rotate(16)"><rect x="${n(-5.5 * s)}" y="${n(-h)}" width="${n(11 * s)}" height="${n(h)}" rx="${n(5.5 * s)}" fill="${HELP}" stroke="${INK}" stroke-width="1.6"/></g>`,
-    );
+  for (let i = 0; i < 3; i++) {
+    const x = cx - gap + i * gap - w / 2 + 2 * s;
+    const h = (i === 1 ? 60 : 54) * s;
+    parts.push(claspFinger(x, cy - 2 * s, h, w * 0.92, HELP));
   }
   parts.push(
-    `<ellipse cx="${n(cx - 16 * s)}" cy="${n(cy + 8 * s)}" rx="${n(28 * s)}" ry="${n(18 * s)}" fill="${SKIN}" stroke="${INK}" stroke-width="1.7"/>`,
-    `<ellipse cx="${n(cx + 18 * s)}" cy="${n(cy + 10 * s)}" rx="${n(26 * s)}" ry="${n(17 * s)}" fill="${HELP}" stroke="${INK}" stroke-width="1.7"/>`,
-    thumbRectAt(cx - 46 * s, cy + 4 * s, -40, s, SKIN),
-    thumbRectAt(cx + 48 * s, cy + 6 * s, 40, s, HELP),
+    `<ellipse cx="${n(cx - 18 * s)}" cy="${n(cy + 6 * s)}" rx="${n(32 * s)}" ry="${n(16 * s)}" fill="${SKIN}" stroke="${INK}" stroke-width="1.7"/>`,
+    `<ellipse cx="${n(cx + 20 * s)}" cy="${n(cy + 8 * s)}" rx="${n(30 * s)}" ry="${n(15 * s)}" fill="${HELP}" stroke="${INK}" stroke-width="1.7"/>`,
+    thumbRectAt(cx - 52 * s, cy + 2 * s, -36, s, SKIN),
+    thumbRectAt(cx + 54 * s, cy + 4 * s, 36, s, HELP),
   );
   return parts.join("");
 }
@@ -450,9 +451,7 @@ function thumbRectAt(x: number, y: number, rot: number, s: number, fill: string)
 }
 
 function drawWeave(up: boolean): string {
-  if (!up) {
-    return weaveClasp(240, 118, 1.15) + arrow(240, 168, 240, 132);
-  }
+  if (!up) return weaveClasp(240, 124, 1.2);
   return (
     `<circle cx="240" cy="162" r="26" fill="${SKIN}" stroke="${INK}" stroke-width="1.7"/>` +
     `<ellipse cx="210" cy="164" rx="6" ry="9" fill="${SKIN}" stroke="${INK}" stroke-width="1.5"/>` +
@@ -466,7 +465,7 @@ function drawWeave(up: boolean): string {
 function drawThumb(): string {
   const opts: HandOpts = {
     x: 200,
-    y: 178,
+    y: 152,
     scale: 0.95,
     arm: true,
     focus: { digit: "thumb", pose: "back" },
@@ -478,11 +477,11 @@ function drawThumb(): string {
 function drawLift(mark: string): string {
   const digit = digitFrom(mark) ?? "index";
   return (
-    plane(48, 36, 384, 168) +
+    plane(36, 28, 408, 176) +
     hand({
       x: 240,
-      y: 168,
-      scale: 0.78,
+      y: 186,
+      scale: 0.9,
       back: true,
       focus: { digit, pose: "lift" },
     })
@@ -490,23 +489,19 @@ function drawLift(mark: string): string {
 }
 
 function drawPress(palmUp: boolean): string {
-  const table = plane(64, 48, 352, 150);
-  const lower: HandOpts = {
-    x: 246,
-    y: 158,
-    scale: 0.62,
-    back: !palmUp,
-  };
-  const upper: HandOpts = {
-    x: 246,
-    y: 132,
-    rotate: palmUp ? -8 : 6,
-    scale: 0.5,
-    back: true,
-    fill: HELP,
-  };
-  const cue = along(246, 150, -90, 36);
-  return table + hand(lower) + arrow(236, 176, cue.x - 8, cue.y) + hand(upper);
+  return (
+    plane(48, 24, 384, 184) +
+    hand({ x: 268, y: 196, scale: 0.84, back: !palmUp }) +
+    arrow(132, 170, 132, 92) +
+    hand({
+      x: 286,
+      y: 162,
+      rotate: palmUp ? -12 : 8,
+      scale: 0.6,
+      back: true,
+      fill: HELP,
+    })
+  );
 }
 
 function drawBreath(mark: string): string {
@@ -528,7 +523,9 @@ function drawBreath(mark: string): string {
     `<path d="M312 124 C330 132 338 150 332 168" fill="none" stroke="${INK}" stroke-width="10" stroke-linecap="round"/>` +
     `<path d="M312 124 C330 132 338 150 332 168" fill="none" stroke="#e7d7bc" stroke-width="6.5" stroke-linecap="round"/>` +
     `<circle cx="240" cy="70" r="24" fill="${SKIN}" stroke="${INK}" stroke-width="1.75"/>` +
-    `<path d="M232 76 q8 6 16 0" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>` +
+    (phase === "out"
+      ? `<ellipse cx="240" cy="78" rx="5" ry="3.5" fill="${INK}" stroke="none"/>`
+      : `<path d="M232 78 h16" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`) +
     `<ellipse cx="240" cy="150" rx="${bellyRx}" ry="${bellyRy}" fill="${bellyFill}" stroke="${INK}" stroke-width="1.6" opacity="${phase === "in" ? "0.9" : "1"}"/>` +
     swell +
     hiss
