@@ -36,6 +36,7 @@ pub fn run() {
             store_dir: Mutex::new(std::path::PathBuf::from(".")),
             mic: Mutex::new(None),
             attempt_target_hz: Mutex::new(None),
+            last_take: Mutex::new(commands::TakeSlot::default()),
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_pack,
@@ -48,6 +49,7 @@ pub fn run() {
             commands::set_progress,
             commands::ref_available,
             commands::read_ref,
+            commands::read_last_take,
             commands::start_attempt,
             commands::set_grading,
             commands::poll_frame,

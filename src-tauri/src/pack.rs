@@ -916,11 +916,12 @@ mod tests {
 
     #[test]
     fn write_content_hashes() {
-        if std::env::var_os("LOWD_WRITE_HASH").is_none() {
+        if std::env::var_os("LOWD_WRITE_HASH").is_none() && std::env::var_os("LOWD_PRINT_HASH").is_none() {
             return;
         }
         let door = resolve_pack_dir();
         let root = door.parent().unwrap();
+        let print_only = std::env::var_os("LOWD_WRITE_HASH").is_none();
         for entry in fs::read_dir(root).unwrap().flatten() {
             let dir = entry.path();
             if !dir.join("manifest.json").is_file() {
@@ -929,6 +930,10 @@ mod tests {
             let raw = fs::read_to_string(dir.join("manifest.json")).unwrap();
             let mut manifest: PackManifest = serde_json::from_str(&raw).unwrap();
             manifest.content_hash = content_hash(&manifest, &dir).unwrap();
+            if print_only {
+                println!("{} {}", manifest.id, manifest.content_hash);
+                continue;
+            }
             fs::write(
                 dir.join("manifest.json"),
                 serde_json::to_string_pretty(&manifest).unwrap() + "\n",

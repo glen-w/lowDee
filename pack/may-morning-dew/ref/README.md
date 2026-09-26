@@ -3,8 +3,8 @@ Authority: What is in `ref/` for the door pack, and where those held notes came 
 
 # Reference audio
 
-Hear plays a file when it exists, and stays hidden when it does not.
-The hole picture still shows. The app never synthesizes a whistle to copy.
+Hear plays a file when it exists. When it does not, Hear plays the pack’s notes as plain tones.
+The hole picture still shows. The tones are not a whistle to copy.
 
 Held notes, already here (first six seconds, one channel):
 
@@ -19,4 +19,4 @@ Still needed, from one player, slow, on this tube. The app does not synthesize t
 - `phrase_1.wav` … `phrase_4.wav` — air chunks, one file per chunk
 - `cut_demo.wav`, `tap_demo.wav`, `roll_demo.wav` — the gesture on A, short enough to hear as a cut and not as a note
 
-Hear stays hidden until the file is there. How Hear and Slower behave is in [FEATURES.md](../../../FEATURES.md).
+Until the file is there, Hear plays the notes. How Hear and Slower behave is in [FEATURES.md](../../../FEATURES.md).

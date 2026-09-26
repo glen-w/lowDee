@@ -88,6 +88,55 @@ export function stepNavHtml(steps: readonly StepChoice[], current: number): stri
   return `<nav class="step-rail" aria-label="Inside this part">${buttons}</nav>`;
 }
 
+const LISTEN_MODES = new Set([
+  "first_sound",
+  "staircase",
+  "breath_octave",
+  "on_the_breath",
+  "phrase",
+  "ornament",
+]);
+
+export interface ReviewCell {
+  nodeIndex: number;
+  stepIndex: number;
+}
+
+/** Last settled listen step in this pack. Pages are not a review. */
+export function reviewCell(opts: {
+  nodeIds: readonly string[];
+  modes: Readonly<Record<string, string>>;
+  progress: readonly ProgressMark[];
+  stairCount: number;
+  phraseCount: number;
+}): ReviewCell | null {
+  let found: ReviewCell | null = null;
+  for (let i = 0; i < opts.nodeIds.length; i++) {
+    const id = opts.nodeIds[i];
+    const hit = opts.progress.find((mark) => mark.node_id === id);
+    if (hit?.state_reached !== "settled") continue;
+    const mode = opts.modes[id] ?? id;
+    if (!LISTEN_MODES.has(mode)) continue;
+    let stepIndex = 0;
+    if (mode === "staircase") stepIndex = Math.max(0, opts.stairCount - 1);
+    else if (mode === "phrase") stepIndex = Math.max(0, opts.phraseCount - 1);
+    found = { nodeIndex: i, stepIndex };
+  }
+  return found;
+}
+
+/** Hear is the primary action until the model has played, when a recording exists. */
+export function primaryHears(opts: {
+  hasRef: boolean;
+  heard: boolean;
+  playing: boolean;
+  inAttempt: boolean;
+}): boolean {
+  if (opts.heard || opts.inAttempt) return false;
+  if (opts.playing) return true;
+  return opts.hasRef;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

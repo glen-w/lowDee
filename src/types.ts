@@ -170,15 +170,15 @@ export const NODE_COPY: Record<
   },
   orn_cut: {
     title: "Cut",
-    body: "On one long note: a finger snaps open and shut, too short to hum, on the pulse.",
+    body: "Hold A. Hole 2, the second from the window, is closed. Snap that hole open and shut, too short to hum. The note you hear is still A.",
   },
   orn_tap: {
     title: "Tap",
-    body: "A finger below the sounding note flicks shut and open. Pitch dips and returns.",
+    body: "Hold A. Hole 3 is open. Flick it shut and open. The pitch dips and comes back to A.",
   },
   orn_roll: {
     title: "Roll",
-    body: "Cut near the start, tap later. The note itself is still the one you meant.",
+    body: "Still A. Snap hole 2 open and shut near the start. Later, flick hole 3 shut and open. A stays the note.",
   },
   air_may_morning_dew: {
     title: "The May Morning Dew",

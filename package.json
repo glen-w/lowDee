@@ -11,10 +11,11 @@
     "bench": "python3 bench/score_traces.py",
     "fixtures": "cargo run --manifest-path src-tauri/Cargo.toml --bin listen -- fixtures",
     "test:picture": "node --experimental-strip-types --test src/picture.test.ts",
+    "test:tones": "node --experimental-strip-types --test src/tones.test.ts",
     "test:glossary": "node --experimental-strip-types --test src/glossary.test.ts",
     "test:path": "node --experimental-strip-types --test src/path.test.ts",
     "test:ghost": "node --experimental-strip-types --test src/ghost.test.ts",
-    "check": "npm run test:picture && npm run test:path && npm run test:glossary && npm run test:ghost && cargo test --manifest-path src-tauri/Cargo.toml --offline && cargo run --manifest-path src-tauri/Cargo.toml --offline --bin listen -- fixtures && python3 bench/score_traces.py && cargo run --manifest-path src-tauri/Cargo.toml --offline --bin listen -- gate"
+    "check": "npm run test:picture && npm run test:tones && npm run test:path && npm run test:glossary && npm run test:ghost && cargo test --manifest-path src-tauri/Cargo.toml --offline && cargo run --manifest-path src-tauri/Cargo.toml --offline --bin listen -- fixtures && python3 bench/score_traces.py && cargo run --manifest-path src-tauri/Cargo.toml --offline --bin listen -- gate"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

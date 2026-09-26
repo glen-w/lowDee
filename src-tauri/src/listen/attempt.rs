@@ -108,6 +108,52 @@ pub struct AttemptResult {
     pub cnat_disagree: bool,
     /// Downsampled contour. Absent when the attempt could not be heard, or the ornament abstains.
     pub ghost: Option<GhostTrace>,
+    /// The pitch a phrase fault names, so the screen can open that note alone.
+    pub isolate_note: Option<String>,
+    /// Heard audio for this attempt. Absent when the attempt could not be heard, or the ornament abstains.
+    #[serde(skip)]
+    pub take_wav: Option<TakeWav>,
+}
+
+/// In-memory wav of one attempt. Debug prints the length, not the samples.
+#[derive(Clone)]
+pub struct TakeWav(pub Vec<u8>);
+
+impl std::fmt::Debug for TakeWav {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "take({} bytes)", self.0.len())
+    }
+}
+
+/// The last take the screen may play. Dropped with the attempt. Not stored.
+#[derive(Debug, Default)]
+pub struct TakeSlot {
+    wav: Option<Vec<u8>>,
+}
+
+impl TakeSlot {
+    pub fn store(&mut self, wav: Option<TakeWav>) {
+        self.wav = wav.map(|taken| taken.0);
+    }
+
+    pub fn drop_take(&mut self) {
+        self.wav = None;
+    }
+
+    pub fn bytes(&self) -> Option<&[u8]> {
+        self.wav.as_deref()
+    }
+}
+
+const TAKE_SECONDS: u32 = 30;
+
+fn append_take(take: &mut Vec<f32>, incoming: &[f32], cap: usize) {
+    if take.len() >= cap || incoming.is_empty() {
+        return;
+    }
+    let room = cap - take.len();
+    let n = incoming.len().min(room);
+    take.extend_from_slice(&incoming[..n]);
 }
 
 pub struct AttemptEngine {
@@ -134,6 +180,8 @@ pub struct AttemptEngine {
     phrase_dwell: f32,
     off_secs: f32,
     samples_buf: Vec<f32>,
+    /// Mono samples for Hear that. Capped. Not the sliding pitch window.
+    take: Vec<f32>,
     hop_samples: usize,
     t_ms: f32,
     /// Snapshot of target at start — frozen.
@@ -177,6 +225,7 @@ impl AttemptEngine {
             phrase_dwell: 0.0,
             off_secs: 0.0,
             samples_buf: Vec::new(),
+            take: Vec::new(),
             hop_samples: hop_samples.max(256),
             t_ms: 0.0,
             frozen_target,
@@ -188,6 +237,8 @@ impl AttemptEngine {
     }
 
     pub fn push_samples(&mut self, samples: &[f32]) -> Option<Frame> {
+        let cap = (self.cfg.sample_rate as usize).saturating_mul(TAKE_SECONDS as usize);
+        append_take(&mut self.take, samples, cap);
         self.samples_buf.extend_from_slice(samples);
         let mut last = None;
         while self.samples_buf.len() >= self.hop_samples * 2 {
@@ -485,7 +536,53 @@ impl AttemptEngine {
             warm: self.warm_hold(),
             cnat_disagree: self.cnat_disagree(),
             ghost: self.ghost_trace(evidence),
+            isolate_note: self.isolate_note(evidence),
+            take_wav: self.take_wav(evidence),
         }
+    }
+
+    /// A phrase fault that names one pitch. Other remarks stay on the phrase.
+    fn isolate_note(&self, evidence: Evidence) -> Option<String> {
+        let notes = match &self.cfg.mode {
+            AttemptMode::Phrase { notes, .. } => notes,
+            _ => return None,
+        };
+        if notes.is_empty() || !matches!(evidence, Evidence::Sealed | Evidence::StillD) {
+            return None;
+        }
+        if let Some(note) = self.dominant_leak_note() {
+            return Some(note);
+        }
+        let i = self.notes_confirmed.min(notes.len() - 1);
+        notes.get(i).map(|note| note.as_str().to_string())
+    }
+
+    fn dominant_leak_note(&self) -> Option<String> {
+        let mut counts: Vec<(String, usize)> = Vec::new();
+        for frame in &self.frames {
+            if frame.leak_hole.is_none() {
+                continue;
+            }
+            let Some(note) = frame.expected_note.clone() else {
+                continue;
+            };
+            if let Some((_, n)) = counts.iter_mut().find(|(name, _)| name == &note) {
+                *n += 1;
+            } else {
+                counts.push((note, 1));
+            }
+        }
+        counts.into_iter().max_by_key(|(_, n)| *n).map(|(note, _)| note)
+    }
+
+    fn take_wav(&self, evidence: Evidence) -> Option<TakeWav> {
+        if matches!(evidence, Evidence::CouldntHear | Evidence::Abstain) || self.take.len() < 256 {
+            return None;
+        }
+        Some(TakeWav(super::synth::wav_bytes(
+            self.cfg.sample_rate,
+            &self.take,
+        )))
     }
 
     /// Mean pitch of a low hold, against the stored break. An early octave is not warmth.
@@ -689,6 +786,9 @@ impl AttemptEngine {
                 if near < 3 {
                     return Evidence::CouldntHear;
                 }
+                if self.stuck_on_low_d(notes) {
+                    return Evidence::StillD;
+                }
                 Evidence::Sealed
             }
             AttemptMode::OnTheBreath { notes } => {
@@ -760,6 +860,33 @@ impl AttemptEngine {
             }
         }
         saw.then_some(Evidence::Abstain)
+    }
+
+    /// The pitch stays on low D while the phrase is waiting for a higher note.
+    /// The frame label can still name the note already played.
+    fn stuck_on_low_d(&self, notes: &[NoteName]) -> bool {
+        if notes.is_empty() || self.notes_confirmed >= notes.len() {
+            return false;
+        }
+        let asked = notes[self.notes_confirmed];
+        if asked == NoteName::D4 {
+            return false;
+        }
+        let base = self.cfg.break_hz.unwrap_or(DEFAULT_LOW_D_HZ);
+        let voiced: Vec<_> = self.frames.iter().filter(|frame| frame.hz.is_some()).collect();
+        if voiced.len() < 3 {
+            return false;
+        }
+        let on_d = voiced
+            .iter()
+            .filter(|frame| {
+                frame
+                    .hz
+                    .map(|hz| (1200.0 * (hz / base).log2()).abs() < 50.0)
+                    .unwrap_or(false)
+            })
+            .count();
+        on_d * 2 > voiced.len()
     }
 }
 
@@ -1263,5 +1390,75 @@ mod tests {
         let written = result.break_hz.expect("new break");
         assert!((written - sharp).abs() < 5.0, "{written} vs {sharp}");
         assert!((result.target_hz.unwrap() - hz).abs() < 1.0);
+    }
+
+    #[test]
+    fn couldnt_hear_keeps_no_take_and_drop_forgets_a_heard_one() {
+        let noise = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::FirstSound,
+                break_hz: None,
+                rms_floor: None,
+                recalibrate: false,
+            },
+            &synth::fixture_noise(44100),
+        );
+        assert_eq!(noise.evidence, Evidence::CouldntHear);
+        assert!(noise.take_wav.is_none());
+
+        let hz = DEFAULT_LOW_D_HZ;
+        let held = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::FirstSound,
+                break_hz: None,
+                rms_floor: None,
+                recalibrate: false,
+            },
+            &synth::fixture_steady_low_d(44100, hz),
+        );
+        let bytes = held.take_wav.expect("heard take").0;
+        assert!(bytes.starts_with(b"RIFF"));
+        assert!(bytes.len() > 44);
+        let mut slot = TakeSlot::default();
+        slot.store(Some(TakeWav(bytes)));
+        assert!(slot.bytes().is_some());
+        slot.drop_take();
+        assert!(slot.bytes().is_none());
+    }
+
+    #[test]
+    fn the_take_stops_at_thirty_seconds() {
+        let mut take = vec![0.0; 10];
+        append_take(&mut take, &[1.0; 5], 12);
+        assert_eq!(take.len(), 12);
+        append_take(&mut take, &[1.0; 5], 12);
+        assert_eq!(take.len(), 12);
+    }
+
+    #[test]
+    fn a_phrase_stuck_on_low_d_names_the_note_that_was_waiting() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let result = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::Phrase {
+                    notes: vec![NoteName::D4, NoteName::E4],
+                    breaths: vec![],
+                    marks: vec![],
+                },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::sine(hz, 44100, 1.2, 0.35),
+        );
+        assert_eq!(result.evidence, Evidence::StillD, "{result:?}");
+        assert_eq!(result.isolate_note.as_deref(), Some("E4"));
+        assert!(!result.settled);
     }
 }

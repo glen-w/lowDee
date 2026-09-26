@@ -4,7 +4,7 @@ Authority: Product decisions — audience, the path, listen states, what is stor
 # Low D — concept note
 
 **Date:** 2026-09-26  
-**Status:** Decided. The player is new to the whistle. Wave 1 is the door. Wave 2, the book’s path, is in the build: the same listen loop, a chain of local packs, and a shelf that stays shut until *Down by the Salley Gardens* is settled. Wave 3 is the ear and the desk: a phrase ghost after feedback, a recalibration between attempts, and one folder a teacher wrote, after *The May Morning Dew*. The app does not invent a whistle to copy.  
+**Status:** Decided. The player is new to the whistle. Wave 1 is the door. Wave 2, the book’s path, is in the build: the same listen loop, a chain of local packs, and a shelf that stays shut until *Down by the Salley Gardens* is settled. Wave 3 is the ear and the desk: a phrase ghost after feedback, a recalibration between attempts, and one folder a teacher wrote, after *The May Morning Dew*. Wave 4 is the sitting: hear the model before the first attempt when a recording is there, hear that take back without storing it, review one settled sound after the warm-up, and open the note a phrase fault names. The app does not invent a whistle to copy.  
 **Sources:** `brainstorm/2026-09-26-low-d-whistle-p0-spine.md`, `brainstorm/low-d-whistle-concept-and-eng-spike-2026-09-26.md`, `brainstorm/low-d-whistle-learning-software.md`. The ex–high-D track in the spine is withdrawn. This note replaces it.  
 **Book on the table:** *The Low Whistle Book* — Stéfán Hannigan and David Ledsam (Soar Valley Music, ISBN 9780952530510). The book stays on the table. The app does not become the book.
 
@@ -116,7 +116,7 @@ Track id: `beginner`. One chain. Hole diagrams carry the early nodes. The staff 
 | 1 | `first_sound` | Whistle to the mouth, pads on the six holes, a steady low D. The picture shows every hole covered. A hold that settles writes the profile. | “Holes aren’t quite sealed.” “That’s the low one.” |
 | 2 | `staircase` | One finger lifts at a time, only through the notes the air uses. Each new note is heard, then found, then played back. | “That’s still D — the bottom finger is down.” “E is there.” |
 | 3 | `breath_octave` | Same fingering as low D. The octave comes with air and goes home again. | “Broke early.” “Softer — stay on the low one.” “Octave’s there.” |
-| 4 | `hedwig` | *Hedwig’s Theme*, the opening, from letter notes in D on the [Irish folk songs page](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html). The key of C on that page is for piano, flute, and recorder. A high mark is the same holes and more air. The tune is not in the pack. | None. They mark the opening tried. The loop does not grade it. |
+| 4 | `hedwig` | *Hedwig’s Theme*, the opening, from letter notes in D on the [Irish folk songs page](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html). The key of C on that page is for piano, flute, and recorder. A high mark is the same holes and more air. The tune is not in the pack. | None. They mark the opening tried, or continue without having played it. The loop does not grade it. |
 | 5 | `on_the_breath` | A short phrase, notes joined. The tongue starts the line and then stays off. Pulse is the air’s pulse, heard and clapped, not a click track laid over a free melody. | “Each note is restarted.” “Let them join.” |
 | 6 | `air_bare` | *The May Morning Dew*, phrase by phrase, no ornaments. Hear it, see the holes, play from the start of the chunk. If a phrase needs C natural, that fingering appears here as a picture, checked against this whistle. | A phrase remark, then the phrase again. |
 | 7 | `orn_cut` | A new gesture on one long note: a finger snaps open and shut, too short to hum, on the pulse. Demonstrated before it is asked for. | “The cut became a note.” Or silence if the contour is messy. |
@@ -132,8 +132,9 @@ Listening runs on `first_sound`, `staircase`, `breath_octave`, `on_the_breath`, 
 
 Every phrase is heard before it is played. Then at most two pictures:
 
-- Six holes, top to bottom. Filled, open, or half covered. The second octave is the same picture with a mark, not a second chart.
-- If they read: the staff of that phrase, as a map of the recording. Under that staff, after the phrase has been heard: the letter names, and sol-fa for the same notes (D is Re).
+- Six holes, top to bottom. Filled, open, or half covered. The second octave is the same picture with a mark, not a second chart. A cut, tap, or roll uses that same picture: the sounding holes stay as they are, and the hole that moves is marked.
+- The letter, and sol-fa for that note (D is Re), sit on the holes.
+- If they read: the staff of that phrase, as a map of what they just heard. Under that staff, after the phrase has been heard: the same letters and the same syllables.
 
 Letter names sit on the holes. They are not a quiz. Singing the phrase back is offered and never required; plenty of musical people do not sing, and plenty of beginners should not be stopped for it.
 
@@ -148,7 +149,7 @@ Song packs in wave 2 may show words after the line has been heard, aligned to ph
 One idea, in words that match what they told us, then the loop is open.
 
 - “Softer — stay on the low one.”
-- “The bottom holes aren’t sealed.”
+- “The low note didn’t speak.”
 - “You restarted every note. Start once, and let the rest join.”
 - “That cut turned into its own note.”
 - “Couldn’t hear. Come a little closer to the mic and play it again.”
@@ -156,6 +157,18 @@ One idea, in words that match what they told us, then the loop is open.
 A reader may also see the hole that leaked. A non-reader hears the same sentence and sees the same hole, without a note name they have not met. Internal evidence may record that a break was early and a retry settled. The screen never shows a percentage, a streak, or a letter.
 
 If they recalibrate, the target moves once, between attempts, never while a phrase is in flight.
+
+### The sitting (wave 4)
+
+The loop above is unchanged. A sitting uses it in four ways.
+
+When a reference recording is on disk, the first action on a fresh step is Hear. I’m ready comes after that file has played once. Slower stays on phrases and held notes. An ornament demo stays at full speed. A missing recording does not block the step.
+
+After an attempt that was heard, Hear that plays the take once. The remark and the ghost stay. Couldn’t hear, and an ornament that abstains, offer no playback. The samples live in memory, capped at about thirty seconds, and are dropped when the attempt ends or the next one starts. They are not written to the progress record.
+
+After the warm-up, if this profile has a settled listen step in the open pack, the sitting asks for that step once: the last settled hold, or the last settled phrase. Onward skips it. The review does not write progress and does not open a later pack.
+
+When a phrase remark is that the note did not speak, or that it is still low D, Just that note opens that pitch alone, then returns to the same chunk. The target does not move.
 
 ---
 
@@ -218,7 +231,7 @@ The whistle profile, and the reading and background answers, are not in the pack
 
 **Pictures versus gestures.** ABC holds pitches, durations, and phrases. The fingering file is what a non-reader is actually following. Ornaments live beside both, and the bare air does not use them. Grading raw grace-note spelling would reward the transcription.
 
-**Reference audio.** One player, slow, clear low-D attack, phrase by phrase. That is what a beginner copies. We do not ask them to imitate a synthesized whistle, and we do not ship other people’s commercial recordings. The book’s CD and download tracks are never reference audio.
+**Reference audio.** One player, slow, clear low-D attack, phrase by phrase. That is what a beginner copies. We do not ask them to imitate a synthesized whistle, and we do not ship other people’s commercial recordings. The book’s CD and download tracks are never reference audio. Until that recording is in the pack, Hear plays the pack’s own notes as plain tones, slow enough to follow. The card says they are the notes. A wav replaces the tones. Hedwig’s Theme stays without a melody.
 
 ---
 
@@ -360,7 +373,7 @@ Progress:
 { node_id, state_reached, as_of }
 ```
 
-`state_reached` is `started` or `settled`. `started` means an attempt opened. `settled` means the loop heard the lesson’s target, or the player marked the part and moved on. A heard settle stays heard. Each whistle keeps its own progress. No WAV in this record.
+`state_reached` is `started` or `settled`. `started` means an attempt opened. `settled` means the loop heard the lesson’s target, or the player marked the part and moved on. A heard settle stays heard. Each whistle keeps its own progress. No WAV in this record. A review, and a single note opened from a phrase fault, do not write progress. The last take is memory only, and it is dropped with the attempt.
 
 Whistle profile:
 

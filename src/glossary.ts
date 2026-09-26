@@ -645,7 +645,7 @@ const GLOSSARY: GlossaryEntry[] = [
     "solfege",
     "Solfege",
     "On the page",
-    "Syllables for the notes: Do, Re, Mi, Fa, Sol, La, Si. Here they are fixed, with C as Do, so this whistle’s home note D is Re. Readers see them under a phrase they have already heard. Some singers say Ti for Si.",
+    "Syllables for the notes: Do, Re, Mi, Fa, So, La, Ti. Here they are fixed, with C as Do, so this whistle’s home note D is Re. They sit beside the letter on the holes. Readers also see them under a phrase they have already heard.",
     ["sol-fa", "fixed do"],
   ),
   entry(

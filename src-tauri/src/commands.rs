@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use crate::listen::attempt::{AttemptConfig, AttemptEngine, AttemptMode, AttemptResult};
+pub use crate::listen::attempt::{AttemptConfig, AttemptEngine, AttemptMode, AttemptResult, TakeSlot};
 use crate::listen::mic::MicSession;
 use crate::listen::ornaments::GestureKind;
 use crate::listen::types::{Background, NoteName, Reads, WhistleProfile};
@@ -19,6 +19,8 @@ pub struct AppState {
     pub mic: Mutex<Option<MicSession>>,
     /// Frozen target for the in-flight attempt (UI display).
     pub attempt_target_hz: Mutex<Option<f32>>,
+    /// Last heard take, as wav bytes. Memory only. Cleared when the attempt drops.
+    pub last_take: Mutex<TakeSlot>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +42,8 @@ pub struct StartAttemptArgs {
     pub marks: Option<Vec<MarkArg>>,
     /// A between-attempt low-D hold. Does not mark the node on screen.
     pub recalibrate: Option<bool>,
+    /// False for a review or a single-note spot. Those do not write progress.
+    pub record: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -373,11 +377,16 @@ pub fn start_attempt(
     state: State<'_, AppState>,
     args: StartAttemptArgs,
 ) -> Result<serde_json::Value, String> {
-    // Stop any prior session
+    // Stop any prior session, and the take that belonged to it.
     {
         let mut mic = state.mic.lock().map_err(|e| e.to_string())?;
         *mic = None;
     }
+    state
+        .last_take
+        .lock()
+        .map_err(|e| e.to_string())?
+        .drop_take();
 
     let profile = active_profile(&app)?;
     let break_hz = profile.as_ref().and_then(|p| {
@@ -422,8 +431,8 @@ pub fn start_attempt(
     *state.attempt_target_hz.lock().map_err(|e| e.to_string())? = target;
     *state.mic.lock().map_err(|e| e.to_string())? = Some(session);
 
-    // Mark node started
-    if !args.recalibrate.unwrap_or(false) {
+    // Mark node started. A review and a single-note spot do not.
+    if args.record.unwrap_or(true) && !args.recalibrate.unwrap_or(false) {
         let _ = write_progress(&app, &state, &args.node_id, "started", "");
     }
 
@@ -472,7 +481,7 @@ pub fn finish_attempt(
     recalibrate: Option<bool>,
     cnat_fingering: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let result = {
+    let mut result = {
         let mut mic = state.mic.lock().map_err(|e| e.to_string())?;
         match mic.take() {
             Some(session) => session.finish(),
@@ -489,6 +498,8 @@ pub fn finish_attempt(
                     warm: false,
                     cnat_disagree: false,
                     ghost: None,
+                    isolate_note: None,
+                    take_wav: None,
                 }
             }
         }
@@ -531,6 +542,13 @@ pub fn finish_attempt(
         }
     }
 
+    let has_take = result.take_wav.is_some();
+    state
+        .last_take
+        .lock()
+        .map_err(|e| e.to_string())?
+        .store(result.take_wav.take());
+
     let target_after = result.target_hz;
     Ok(json!({
         "evidence": result.evidence,
@@ -543,6 +561,8 @@ pub fn finish_attempt(
         "warm": result.warm,
         "cnat_disagree": result.cnat_disagree,
         "ghost": result.ghost,
+        "isolate_note": result.isolate_note,
+        "has_take": has_take,
     }))
 }
 
@@ -551,7 +571,21 @@ pub fn finish_attempt(
 pub fn drop_attempt(state: State<'_, AppState>) -> Result<(), String> {
     *state.mic.lock().map_err(|e| e.to_string())? = None;
     *state.attempt_target_hz.lock().map_err(|e| e.to_string())? = None;
+    state
+        .last_take
+        .lock()
+        .map_err(|e| e.to_string())?
+        .drop_take();
     Ok(())
+}
+
+/// The last take, as wav bytes. Absent after a drop, a couldn’t-hear, or an abstain.
+#[tauri::command]
+pub fn read_last_take(state: State<'_, AppState>) -> Result<Vec<u8>, String> {
+    let slot = state.last_take.lock().map_err(|e| e.to_string())?;
+    slot.bytes()
+        .map(|bytes| bytes.to_vec())
+        .ok_or_else(|| "no take".into())
 }
 
 #[tauri::command]

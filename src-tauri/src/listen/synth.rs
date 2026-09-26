@@ -186,3 +186,24 @@ pub fn write_wav(path: &std::path::Path, sample_rate: u32, samples: &[f32]) -> R
     }
     writer.finalize().map_err(|e| e.to_string())
 }
+
+/// Mono 16-bit wav in memory. The practice screen plays the last take from this.
+/// Nothing here is written to the progress record.
+pub fn wav_bytes(sample_rate: u32, samples: &[f32]) -> Vec<u8> {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut writer = hound::WavWriter::new(&mut cursor, spec).expect("wav header");
+        for &s in samples {
+            let amp = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+            writer.write_sample(amp).expect("wav sample");
+        }
+        writer.finalize().expect("wav finalize");
+    }
+    cursor.into_inner()
+}

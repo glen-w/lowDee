@@ -36,10 +36,13 @@ A later sitting skips the card and starts at the warm-up, then the first unsettl
 - One practice screen for the listen nodes, and a letter-note card for `hedwig`. The rail names every part and opens it. Settled and started stay marked.
 - Shorter copy when background is `high_d`, on the staircase and on the octave.
 - Side-view low D, holes numbered 1–6 from the window. Closed is filled, open is a ring, half covers only the hole that says half. A phrase or the staircase is a row of those columns. The letter sits beside the whistle. The second octave is the same holes with a mark by the window.
-- Staff after Hear, for readers, on a joined phrase and on a phrase node, with a letter row and a fixed-do row under that phrase. The staff header uses the pack’s meter and key. A non-reader does not see the staff or the syllables.
+- The letter and its fixed-do syllable sit on the whistle and on each column (D is Re). Staff after Hear, for readers, on a joined phrase and on a phrase node, with a letter row and the same syllables under that phrase. The staff header uses the pack’s meter and key. A non-reader does not see the staff.
 - Hide pictures on a node that asks for it. On a song, words can hide on their own. They show after Hear, or after the line has been played.
-- Hear and Slower, when a reference wav is on disk. Slower plays a phrase or a held note at three-quarter speed. An ornament demo plays at full speed. Grading stays off while either plays. Dance packs add Hear the pulse. Airs do not.
-- One remark after an attempt, from `remarks.json`, worded for reading and background. Under it, after feedback, a quiet line of that attempt against the notes the pack expected. Couldn’t-hear and an ornament that abstains draw nothing.
+- Hear and Slower. A reference wav plays when it is on disk. When it is not, and the step has ABC or a cut, tap, or roll, Hear plays those notes as plain tones and the card says so. Slower plays a phrase or a held note at three-quarter speed, including the tones. An ornament demo plays at full speed. Grading stays off while either plays. Dance packs add Hear the pulse. Airs do not.
+- One remark after an attempt, from `remarks.json`, worded for reading and background. Under it, after feedback, a quiet line of that attempt against the notes the pack expected. Couldn’t-hear and an ornament that abstains draw nothing. Hear that plays the take once from memory. It is dropped with the attempt.
+- When a reference wav is on disk, Hear is the primary action until that file has played once. A missing wav leaves I’m ready available. Slower stays on phrases and held notes. An ornament demo stays at full speed.
+- After the warm-up, one review of the last settled listen step in the open pack, when one exists. Onward skips it. It does not write progress.
+- Just that note, when a phrase fault names one pitch. That note is held on its own, then the chunk returns. The target does not move.
 - Hold bar from the engine’s settle clock on the first sound, the staircase, and the octave.
 - Low D and Octave on the breath-and-octave part, switching the target between the two.
 - Couldn’t hear — continue, which opens the next node.
@@ -75,11 +78,11 @@ A later sitting skips the card and starts at the warm-up, then the first unsettl
 - Ornament descriptions and marks: cut and tap on the opening, a roll on the return, a cut on the close. Demo note A4. The last node draws those marks and grades them.
 - Remark sentences for each evidence id. Node copy lives on the manifest.
 - Held-note recordings D4–B4 and D5, for Hear on the first sound, the staircase, and the octave. Provenance is in `pack/may-morning-dew/ref/README.md`.
-- `hedwig` opens [Hedwig’s Theme letter notes](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html) in the key of D. The card shows the staircase holes and letters. I’ve played the opening writes `settled` with `via` `stepped` and moves on. The melody is not in the pack.
+- `hedwig` opens [Hedwig’s Theme letter notes](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html) in the key of D. The card shows the staircase holes, letters, and syllables. I’ve played the opening, or Not yet — continue, writes `settled` with `via` `stepped` and moves on. The melody is not in the pack.
 
 ### Content after the door
 
-Same folder shape. Each pack names a public-domain source. Chapter names are pointers. Hear stays hidden until a wav is added.
+Same folder shape. Each pack names a public-domain source. Chapter names are pointers. Hear plays a wav when one is added, and the pack’s notes as plain tones until then.
 
 - `book-staircase` — B, A, G, F♯, E, D, C♯, octave D′. No new air.
 - `salley-gardens` — *Down by the Salley Gardens*, with the Mourne Shore names in `aka`. Words after the line is heard. One cut mark.
@@ -110,8 +113,8 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 
 | Feature | What is present | What is not |
 | --- | --- | --- |
-| Ear before playing | Hear plays a wav and then the staff may appear | Phrase wavs and cut, tap, and roll demos are not in `ref/` yet, so Hear is hidden on those nodes. The hole picture still shows. |
-| Ornaments on the air | Marks are drawn on the phrase and passed into the attempt when the node grades them. A cut on a later pack waits until the door’s cut has settled. | Phrase wavs and demos are still absent, so Hear is hidden. |
+| Ear before playing | Hear plays a wav when one is there, otherwise the pack’s notes as plain tones, and then the staff may appear. When the wav is there, Hear is the primary action until it has played once | Phrase wavs and cut, tap, and roll demos are not in `ref/` yet, so those steps stay playable without a model. The hole picture still shows. |
+| Ornaments on the air | Marks are drawn on the phrase and passed into the attempt when the node grades them. The moving hole is marked on that note. A cut on a later pack waits until the door’s cut has settled. | Phrase wavs and demos are still absent, so Hear plays the notes. |
 | Several whistles | The practice screen can switch the whistle in hand, and the name card can pick one already stored. Reading and background can be changed on the practice card. | A new whistle is still named on the object card. |
 | Early-break remark during the hold | The pill can show it as soon as a frame latches | The attempt still finishes on I’m done; the target does not move. |
 | `content_hash` | The loader checks sha256 of the manifest identity, the nodes, and the content files that are present | A mismatch refuses the pack. |
@@ -119,7 +122,7 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 
 ## Ahead
 
-Reference recordings for the phrases, the songs, and the ornament demos are still not in `ref/`. Hear stays hidden until a wav is there. Words on a song appear after Hear, or after the player has played the line. Slower is for phrases and held notes. An ornament demo, when the wav is there, plays at full speed.
+Reference recordings for the phrases, the songs, and the ornament demos are still not in `ref/`. Until a wav is there, Hear plays the pack’s notes as plain tones. Words on a song appear after Hear, or after the player has played the line. Slower is for phrases and held notes, including those tones. An ornament demo plays at full speed.
 
 F natural, half-holing as a menu, and the book’s later accidentals are not in the scale. The desk screen is in the build. `teacher/` in the tree still has only a note. Nothing in that folder is uploaded.
 
@@ -130,13 +133,13 @@ F natural, half-holing as a menu, and the book’s later accidentals are not in 
 | `first_sound` | All holes closed, hold bar | Hold low D | About 10 s near the target, and that result is allowed to mark the node |
 | `staircase` | Columns for D through B, current note marked | Single note | Each note held, then the node when B is done |
 | `breath_octave` | Same picture; octave mark when Octave is selected | Low D or octave D | Low hold, or the octave hold |
-| `hedwig` | Staircase holes and letters, and a button that opens the D letter notes | None | I’ve played the opening |
+| `hedwig` | Staircase holes, letters, and syllables, and a button that opens the D letter notes | None | I’ve played the opening, or Not yet — continue |
 | `on_the_breath` | A column for each note of the line, staff after Hear | Joined D–E–F♯–G | Phrase heard, or the join remark |
 | `air_bare` | Current chunk | Phrase of that chunk | Each chunk, then the node on the last |
-| `orn_cut` | A, holes for A | Cut on A4 | Abstain, or step past |
-| `orn_tap` | A | Tap on A4 | Abstain, or step past |
-| `orn_roll` | A | Roll on A4 | Abstain, or step past |
-| `air_may_morning_dew` | Same chunks; pictures can hide; cut, tap, and roll where marked | Phrase, and those marks | Same chunk walk |
+| `orn_cut` | A, holes for A, hole 2 marked | Cut on A4 | Abstain, or step past |
+| `orn_tap` | A, hole 3 marked | Tap on A4 | Abstain, or step past |
+| `orn_roll` | A, holes 2 and 3 marked | Roll on A4 | Abstain, or step past |
+| `air_may_morning_dew` | Same chunks; pictures can hide; cut, tap, and roll where marked, on the hole that moves | Phrase, and those marks | Same chunk walk |
 
 A cut that lasts, a missing tap, a leak, an early break, or a phrase that never arrives leaves the node where it is. Try again starts another attempt against the same frozen target.
 
@@ -149,4 +152,4 @@ A cut that lasts, a missing tap, a leak, an early break, or a phrase that never 
 | Air chunks | `ref/phrase_1.wav` … `ref/phrase_4.wav` |
 | Cut, tap, roll | `ref/cut_demo.wav`, `ref/tap_demo.wav`, `ref/roll_demo.wav` |
 
-Only the held notes are in the repository today. Checklists for the missing phrase and song files are in each pack’s `ref/README.md`.
+Only the held notes are in the repository today. Until a phrase or demo wav is added, Hear plays the notes. Checklists for the missing files are in each pack’s `ref/README.md`.

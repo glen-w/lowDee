@@ -26,7 +26,7 @@
       "id": "phrase_4",
       "label": "Close",
       "notes": ["F#4", "D4", "E4", "D4"],
-      "abc": "F2 D | E2 D | D3",
+      "abc": "F2 D | E3 | D3",
       "ref": "ref/phrase_4.wav"
     }
   ],

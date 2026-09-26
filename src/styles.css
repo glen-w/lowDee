@@ -195,10 +195,19 @@ h2 {
   box-shadow: 0 0 0 2px rgba(196, 165, 116, 0.55);
 }
 
+.column .dot.gesture {
+  box-shadow: 0 0 0 2px var(--brass);
+}
+
 .column-name {
   font-size: 0.72rem;
   color: var(--cream-dim);
   margin-top: 0.2rem;
+}
+
+.column-sol {
+  font-size: 0.68rem;
+  color: var(--brass);
 }
 
 .column-mark {

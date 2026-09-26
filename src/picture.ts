@@ -12,6 +12,13 @@ export interface Fingering {
   notes: Record<string, HoleChart>;
 }
 
+export type GestureKind = "cut" | "tap";
+
+export interface GestureMark {
+  hole: number;
+  kind: GestureKind;
+}
+
 export interface ColumnModel {
   note: string;
   holes: HoleState[];
@@ -19,6 +26,7 @@ export interface ColumnModel {
   label: string;
   current: boolean;
   mark: string | null;
+  gestures: GestureMark[];
 }
 
 export interface PictureModel {
@@ -27,10 +35,11 @@ export interface PictureModel {
     octave: number;
     label: string;
     leakHole: number | null;
+    gestures: GestureMark[];
   };
   columns: ColumnModel[];
   letters: string[];
-  /** Fixed-do syllables. Absent unless the player reads and the phrase has been heard. */
+  /** Fixed-do syllables. On the holes whenever the picture asks for them. */
   solfege: string[] | null;
 }
 
@@ -38,18 +47,21 @@ const SOLFEGE: Record<string, string> = {
   D4: "Re",
   E4: "Mi",
   "F#4": "Fa♯",
-  G4: "Sol",
+  G4: "So",
   A4: "La",
-  B4: "Si",
+  B4: "Ti",
   C5: "Do",
   "C#5": "Do♯",
   D5: "Re′",
   E5: "Mi′",
   "F#5": "Fa♯′",
-  G5: "Sol′",
+  G5: "So′",
   A5: "La′",
-  B5: "Si′",
+  B5: "Ti′",
 };
+
+/** Diatonic steps on this whistle. C natural is off this line, so it grows no gesture hole. */
+const SCALE = ["D4", "E4", "F#4", "G4", "A4", "B4", "C#5", "D5", "E5", "F#5", "G5", "A5", "B5"];
 
 const CLOSED: HoleState[] = ["closed", "closed", "closed", "closed", "closed", "closed"];
 
@@ -59,6 +71,78 @@ export function showSolfege(reads: Reads): boolean {
 
 export function solfegeFor(note: string): string {
   return SOLFEGE[note] ?? "";
+}
+
+function holesOf(fingering: Fingering, note: string): HoleState[] | null {
+  const chart = fingering.notes[note];
+  if (!chart) return null;
+  return holeStates(chart);
+}
+
+function octaveDown(note: string): string | null {
+  const match = /^([A-G](?:#)?)(\d)$/.exec(note);
+  if (!match) return null;
+  const octave = Number(match[2]) - 1;
+  if (octave < 4) return null;
+  return `${match[1]}${octave}`;
+}
+
+/** The neighbor's holes. An octave note uses the same move as the octave below when the chart stops. */
+function neighborHoles(fingering: Fingering, note: string, step: 1 | -1): HoleState[] | null {
+  const index = SCALE.indexOf(note);
+  if (index < 0) return null;
+  const next = SCALE[index + step];
+  if (!next) return null;
+  const direct = holesOf(fingering, next);
+  if (direct) return direct;
+  const down = octaveDown(note);
+  if (!down) return null;
+  const downIndex = SCALE.indexOf(down);
+  const downNext = downIndex < 0 ? null : SCALE[downIndex + step];
+  const here = holesOf(fingering, note);
+  const downHere = holesOf(fingering, down);
+  if (!here || !downHere || !downNext) return null;
+  if (here.some((hole, i) => hole !== downHere[i])) return null;
+  return holesOf(fingering, downNext);
+}
+
+/** One hole, and only when the two fingerings differ by that single hole. */
+function singleMove(from: HoleState[], to: HoleState[], direction: "open" | "closed"): number | null {
+  const diffs: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    if (from[i] !== to[i]) diffs.push(i);
+  }
+  if (diffs.length !== 1) return null;
+  const hole = diffs[0];
+  if (direction === "open" && from[hole] === "closed" && to[hole] === "open") return hole;
+  if (direction === "closed" && from[hole] === "open" && to[hole] === "closed") return hole;
+  return null;
+}
+
+function gestureParts(mark: string): GestureKind[] {
+  const name = mark.trim().toLowerCase().replaceAll("_", " ");
+  if (name === "cut") return ["cut"];
+  if (name === "tap" || name === "double tap") return ["tap"];
+  if (name === "roll" || name === "short roll" || name === "long roll") return ["cut", "tap"];
+  return [];
+}
+
+/** Cut opens toward the next scale step. Tap closes toward the note below. */
+export function gestureHolesFor(fingering: Fingering, note: string, mark: string | null): GestureMark[] {
+  const here = holesOf(fingering, note);
+  if (!here || !mark) return [];
+  const marks: GestureMark[] = [];
+  for (const kind of gestureParts(mark)) {
+    const neighbor =
+      kind === "cut" ? neighborHoles(fingering, note, 1) : neighborHoles(fingering, note, -1);
+    if (!neighbor) continue;
+    const hole = singleMove(here, neighbor, kind === "cut" ? "open" : "closed");
+    if (hole == null) continue;
+    if (!marks.some((item) => item.hole === hole && item.kind === kind)) {
+      marks.push({ hole, kind });
+    }
+  }
+  return marks;
 }
 
 /** A hole is half-covered only when that hole says so. A note-level flag does not paint the row. */
@@ -91,6 +175,7 @@ export function pictureModel(opts: {
       label: chart?.label ?? note,
       current: i === index,
       mark: opts.marks?.[i] ?? null,
+      gestures: gestureHolesFor(opts.fingering, note, opts.marks?.[i] ?? null),
     };
   });
   const current = columns[index];
@@ -101,6 +186,7 @@ export function pictureModel(opts: {
       octave: current.octave,
       label: current.label,
       leakHole: leak != null && leak >= 0 && leak < 6 ? leak : null,
+      gestures: current.gestures,
     },
     columns,
     letters: columns.map((c) => c.label),
@@ -130,7 +216,9 @@ export function pictureElement(model: PictureModel): HTMLElement {
 function callout(model: PictureModel): HTMLElement {
   const lab = document.createElement("div");
   lab.className = "hole-label";
-  lab.textContent = model.whistle.label;
+  const index = model.columns.findIndex((column) => column.current);
+  const syllable = model.solfege?.[index] ?? "";
+  lab.textContent = syllable ? `${model.whistle.label} · ${syllable}` : model.whistle.label;
   return lab;
 }
 
@@ -143,20 +231,33 @@ function columnStrip(model: PictureModel): HTMLElement {
     col.className = column.current ? "column current" : "column";
     col.setAttribute("role", "listitem");
     col.dataset.note = column.note;
-    col.setAttribute(
-      "aria-label",
-      column.current ? `${column.label}, current` : column.label,
-    );
-    column.holes.forEach((state) => {
+    const syllable = model.solfege?.[model.columns.indexOf(column)] ?? "";
+    const gesture = column.gestures.map((mark) => `${mark.kind}, hole ${mark.hole + 1}`).join(", ");
+    const aria = [syllable ? `${column.label}, ${syllable}` : column.label];
+    if (column.current) aria.push("current");
+    if (gesture) aria.push(gesture);
+    col.setAttribute("aria-label", aria.join(", "));
+    column.holes.forEach((state, hole) => {
       const dot = document.createElement("i");
       dot.className = `dot ${state}`;
       if (column.octave === 2) dot.classList.add("octave");
+      const moving = column.gestures.find((mark) => mark.hole === hole);
+      if (moving) {
+        dot.classList.add("gesture", moving.kind);
+        dot.dataset.gesture = moving.kind;
+      }
       col.append(dot);
     });
     const name = document.createElement("span");
     name.className = "column-name";
     name.textContent = column.label;
     col.append(name);
+    if (syllable) {
+      const sol = document.createElement("span");
+      sol.className = "column-sol";
+      sol.textContent = syllable;
+      col.append(sol);
+    }
     if (column.mark) {
       const mark = document.createElement("span");
       mark.className = "column-mark";
@@ -171,13 +272,14 @@ function columnStrip(model: PictureModel): HTMLElement {
 function whistleSvg(model: PictureModel): SVGSVGElement {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("viewBox", "0 0 720 168");
+  svg.setAttribute("viewBox", "0 0 720 188");
   svg.setAttribute("class", "whistle-svg");
   svg.setAttribute("role", "img");
   const leak =
     model.whistle.leakHole == null ? "" : `, hole ${model.whistle.leakHole + 1} open to the leak`;
   const octave = model.whistle.octave === 2 ? ", octave" : "";
-  svg.setAttribute("aria-label", `Low D, ${model.whistle.label}${octave}${leak}`);
+  const moving = model.whistle.gestures.map((mark) => `, hole ${mark.hole + 1} ${mark.kind}`).join("");
+  svg.setAttribute("aria-label", `Low D, ${model.whistle.label}${octave}${leak}${moving}`);
 
   const uid = `w${Math.random().toString(36).slice(2, 8)}`;
   const defs = document.createElementNS(ns, "defs");
@@ -255,6 +357,28 @@ function whistleSvg(model: PictureModel): SVGSVGElement {
       ring.setAttribute("stroke-width", "2");
       ring.setAttribute("data-leak", String(i + 1));
       svg.append(ring);
+    }
+
+    const gesture = model.whistle.gestures.find((mark) => mark.hole === i);
+    if (gesture) {
+      const ring = document.createElementNS(ns, "circle");
+      ring.setAttribute("cx", String(xs[i]));
+      ring.setAttribute("cy", "76");
+      ring.setAttribute("r", "18");
+      ring.setAttribute("fill", "none");
+      ring.setAttribute("stroke", "#c4a574");
+      ring.setAttribute("stroke-width", "2");
+      ring.setAttribute("data-gesture", gesture.kind);
+      svg.append(ring);
+      const word = document.createElementNS(ns, "text");
+      word.setAttribute("x", String(xs[i]));
+      word.setAttribute("y", "152");
+      word.setAttribute("text-anchor", "middle");
+      word.setAttribute("fill", "#c4a574");
+      word.setAttribute("font-size", "13");
+      word.setAttribute("font-family", "Palatino, Georgia, serif");
+      word.textContent = gesture.kind;
+      svg.append(word);
     }
 
     const num = document.createElementNS(ns, "text");

@@ -1,8 +1,8 @@
 {
   "sealed": {
-    "default": "Holes aren\u2019t quite sealed.",
-    "reads_yes": "The bottom holes aren\u2019t sealed.",
-    "C5": "C natural that did not seal."
+    "default": "The low note didn\u2019t speak.",
+    "reads_yes": "The low note didn\u2019t speak.",
+    "C5": "C natural didn\u2019t speak."
   },
   "low_d_held": {
     "default": "That\u2019s the low one."

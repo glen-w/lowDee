@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import abcjs from "abcjs";
-import { appendNameRows, pictureModel, renderPicture, showSolfege } from "./picture";
+import { appendNameRows, pictureModel, renderPicture, showSolfege, solfegeFor } from "./picture";
+import { noteHz, ornamentEvents, phraseEvents, playTones, type ToneEvent, type ToneHandle } from "./tones";
 import { aboutHtml } from "./about";
 import {
   NODE_COPY,
@@ -34,7 +35,9 @@ import { deskHtml } from "./desk";
 import {
   PATH_NOTE,
   practiceNavHtml,
+  primaryHears,
   resumeIndex as firstUnsettledIndex,
+  reviewCell,
   stepNavHtml,
   stepsForNode,
   type StepChoice,
@@ -65,10 +68,21 @@ class App {
   hidePictures = false;
   heardPhrase = false;
   playedPhrase = false;
+  modelHeard = false;
+  refReady: boolean | null = null;
+  hearKind: "model" | "take" = "model";
+  reviewing = false;
+  reviewDone = false;
+  reviewHome = 0;
+  isolating = false;
+  isolateNote: string | null = null;
+  hasTake = false;
   remark = "";
   pollTimer: number | null = null;
   holdRatio = 0;
   hearAudio: HTMLAudioElement | null = null;
+  hearTones: ToneHandle | null = null;
+  toneGuide = false;
   hearUrl: string | null = null;
   hearToken = 0;
   frozenTarget: number | null = null;
@@ -153,6 +167,13 @@ class App {
     this.phraseIndex = 0;
     this.heardPhrase = false;
     this.playedPhrase = false;
+    this.modelHeard = false;
+    this.refReady = null;
+    this.reviewing = false;
+    this.reviewDone = false;
+    this.isolating = false;
+    this.isolateNote = null;
+    this.hasTake = false;
     this.hidePictures = false;
     this.hideWords = false;
     this.listenState = "idle";
@@ -161,6 +182,7 @@ class App {
     this.cnatAlt = false;
     this.recalibrating = false;
     this.page = "sitting";
+    if (this.warmed) this.beginReview();
     if (renderAfter) this.render();
   }
 
@@ -362,6 +384,7 @@ class App {
     this.stopWarmTick();
     this.warmed = true;
     this.warmView = null;
+    this.beginReview();
     this.render();
   }
 
@@ -369,6 +392,63 @@ class App {
     this.stopWarmTick();
     this.warmed = true;
     this.warmView = null;
+    this.beginReview();
+    this.render();
+  }
+
+  beginReview(): void {
+    if (this.reviewDone || this.reviewing || !this.pack || !this.profile) return;
+    const modes: Record<string, string> = {};
+    for (const node of this.pack.manifest.nodes ?? []) modes[node.id] = node.mode;
+    const cell = reviewCell({
+      nodeIds: this.pack.manifest.node_ids,
+      modes,
+      progress: this.ownedProgress(),
+      stairCount: this.pack.phrases.staircase_notes.length,
+      phraseCount: this.pack.phrases.chunks.length,
+    });
+    if (!cell) {
+      this.reviewDone = true;
+      return;
+    }
+    this.reviewHome = this.nodeIndex;
+    this.reviewing = true;
+    this.nodeIndex = cell.nodeIndex;
+    if (this.isStair()) this.stairIndex = cell.stepIndex;
+    else if (this.mode() === "breath_octave") this.wantOctave = false;
+    else if (this.isPhraseNode()) {
+      const last = Math.max(0, this.pack.phrases.chunks.length - 1);
+      this.phraseIndex = Math.min(cell.stepIndex, last);
+    }
+    this.modelHeard = false;
+    this.refReady = null;
+    this.heardPhrase = false;
+    this.playedPhrase = false;
+    this.isolating = false;
+    this.isolateNote = null;
+    this.hasTake = false;
+    this.listenState = "idle";
+    this.remark = "";
+  }
+
+  async onward(): Promise<void> {
+    await this.leaveAttempt();
+    this.reviewing = false;
+    this.reviewDone = true;
+    this.nodeIndex = this.reviewHome;
+    this.stairIndex = 0;
+    this.phraseIndex = 0;
+    this.wantOctave = false;
+    this.modelHeard = false;
+    this.refReady = null;
+    this.heardPhrase = false;
+    this.playedPhrase = false;
+    this.isolating = false;
+    this.isolateNote = null;
+    this.hasTake = false;
+    this.remark = "";
+    this.ghost = null;
+    this.listenState = "idle";
     this.render();
   }
 
@@ -552,6 +632,7 @@ class App {
         <p class="meta path-note">${PATH_NOTE}</p>
         <h1>${copy.title}</h1>
         <p class="lede">${body}</p>
+        ${this.reviewing ? `<p class="meta">A review. Play the one you already have.</p>` : ""}
         <div class="card">
           ${stepNavHtml(this.stepChoices(), this.stepIndex())}
           ${
@@ -563,6 +644,7 @@ class App {
           <div class="row" style="margin-top:1.25rem">
             ${this.pack.manifest.pages?.[this.nodeId]?.url ? `<button class="primary" id="page-btn">Letter notes in D</button>` : ""}
             <button id="play-btn">${this.mode() === "vibrato" ? "I’ve heard it" : "I’ve played the opening"}</button>
+            <button id="step-btn">Not yet — continue</button>
           </div>`
               : `<div class="row" style="justify-content:space-between">
             <span class="state-pill ${stateCls}"><i class="dot"></i>${this.listenState}</span>
@@ -577,8 +659,11 @@ class App {
           <div class="hold-meter" ${this.showHold() ? "" : "hidden"}><i id="hold-bar" style="width:${Math.min(100, this.holdRatio * 100)}%"></i></div>
           <div class="row" style="margin-top:1.25rem">
             <button class="primary" id="play-btn">${this.primaryLabel()}</button>
-            <button id="hear-btn" hidden>${this.hearAudio ? "Stop" : "Hear"}</button>
+            <button id="hear-btn" hidden>${this.hearAudio || this.hearTones ? "Stop" : "Hear"}</button>
             <button id="hear-slow" hidden>Slower</button>
+            ${this.hasTake && this.listenState === "feedback" ? `<button type="button" class="ghost" id="take-btn">Hear that</button>` : ""}
+            ${this.isolateNote && this.listenState === "feedback" && !this.isolating ? `<button type="button" class="ghost" id="spot-btn">Just that note</button>` : ""}
+            ${this.reviewing ? `<button type="button" class="ghost" id="onward-btn">Onward</button>` : ""}
             ${(this.pack.manifest.pulse_beats ?? 0) > 0 ? `<button class="ghost" id="pulse-btn">Hear the pulse</button>` : ""}
             <button class="ghost" id="step-btn">Couldn’t hear — continue</button>
             ${node?.hide_pictures ? `<button class="ghost" id="hide-btn">${this.hidePictures ? "Show pictures" : "Hide pictures"}</button>` : ""}
@@ -586,6 +671,7 @@ class App {
           </div>
           ${this.answerRow()}
           ${next && this.packSettled() ? `<div class="row"><button class="primary" id="next-pack">Next: ${escapeHtml(next.title)}</button></div>` : ""}
+          <p class="meta" id="tone-note" hidden>Hear plays the notes. A recording replaces them when one is here.</p>
           <p class="meta" style="margin-top:1rem">Use headphones so the app doesn’t hear itself.</p>`
           }
         </div>
@@ -637,13 +723,18 @@ class App {
 
   letterChips(): string {
     return this.pack.phrases.staircase_notes
-      .map((note) => this.pack.fingering.notes[note]?.label ?? note)
+      .map((note) => {
+        const label = this.pack.fingering.notes[note]?.label ?? note;
+        const syllable = solfegeFor(note);
+        return syllable ? `${label} · ${syllable}` : label;
+      })
       .map((label) => `<span>${escapeHtml(label)}</span>`)
       .join("");
   }
 
   primaryLabel(): string {
-    if (this.hearAudio) return "I’m ready";
+    if (this.primaryHearsNow()) return "Hear";
+    if (this.hearAudio || this.hearTones) return "I’m ready";
     switch (this.listenState) {
       case "idle":
         return "I’m ready";
@@ -655,7 +746,19 @@ class App {
     }
   }
 
+  primaryHearsNow(): boolean {
+    if (this.isolating || this.isPage()) return false;
+    return primaryHears({
+      hasRef: this.refReady === true,
+      heard: this.modelHeard,
+      playing: this.hearAudio != null && this.hearKind === "model",
+      inAttempt:
+        (this.listenState === "wait" || this.listenState === "sounding") && this.hearAudio == null,
+    });
+  }
+
   currentNote(): string {
+    if (this.isolating && this.isolateNote) return this.isolateNote;
     const mode = this.mode();
     if (mode === "first_sound" || this.nodeId === "first_sound") return "D4";
     if (mode === "staircase" || this.nodeId === "staircase") {
@@ -718,12 +821,13 @@ class App {
   }
 
   showHold(): boolean {
-    if (this.recalibrating) return true;
+    if (this.isolating || this.recalibrating) return true;
     const mode = this.mode();
     return mode === "first_sound" || mode === "breath_octave" || mode === "staircase";
   }
 
   pictureNotes(): string[] {
+    if (this.isolating && this.isolateNote) return [this.isolateNote];
     const mode = this.mode();
     if (mode === "staircase" || this.nodeId === "hedwig" || mode === "page") {
       return this.pack.phrases.staircase_notes.length
@@ -742,7 +846,13 @@ class App {
   phraseMarks(): Array<string | null> {
     const notes = this.pictureNotes();
     const marks = notes.map(() => null as string | null);
-    if (!this.isPhraseNode()) return marks;
+    if (this.isolating) return marks;
+    if (this.isOrnament()) {
+      const gesture = (this.node()?.gesture || "").replaceAll("_", " ");
+      if (marks.length > 0 && gesture) marks[0] = gesture;
+      return marks;
+    }
+    if (!this.isPhraseNode() || !this.node()?.grade_marks) return marks;
     const chunk = this.pack.phrases.chunks[this.phraseIndex];
     if (!chunk) return marks;
     for (const mark of this.pack.ornaments.marks) {
@@ -854,7 +964,7 @@ class App {
         notes: this.pictureNotes(),
         currentIndex: this.pictureIndex(),
         leakHole: sounding ? this.liveFrame!.leak_hole : null,
-        showSolfege: false,
+        showSolfege: true,
         marks: this.phraseMarks(),
       }),
     );
@@ -868,6 +978,7 @@ class App {
       reads &&
       this.heardPhrase &&
       !this.hidePictures &&
+      !this.isolating &&
       (this.isPhraseNode() || this.mode() === "on_the_breath");
     el.hidden = !show;
     if (!show) return;
@@ -966,6 +1077,9 @@ class App {
     document.querySelector("#step-btn")?.addEventListener("click", () => this.onStepPast());
     document.querySelector("#hear-btn")?.addEventListener("click", () => this.onHear(1));
     document.querySelector("#hear-slow")?.addEventListener("click", () => this.onHear(0.75));
+    document.querySelector("#take-btn")?.addEventListener("click", () => void this.onHearThat());
+    document.querySelector("#spot-btn")?.addEventListener("click", () => void this.onJustThat());
+    document.querySelector("#onward-btn")?.addEventListener("click", () => void this.onward());
     document.querySelector("#hide-btn")?.addEventListener("click", () => {
       this.hidePictures = !this.hidePictures;
       this.render();
@@ -997,6 +1111,10 @@ class App {
       return;
     }
     await this.leaveAttempt();
+    if (this.reviewing) {
+      this.reviewing = false;
+      this.reviewDone = true;
+    }
     this.nodeIndex = index;
     this.stairIndex = 0;
     this.phraseIndex = 0;
@@ -1004,6 +1122,11 @@ class App {
     this.cnatAlt = false;
     this.heardPhrase = false;
     this.playedPhrase = false;
+    this.modelHeard = false;
+    this.refReady = null;
+    this.isolating = false;
+    this.isolateNote = null;
+    this.hasTake = false;
     if (!this.node()?.hide_pictures) this.hidePictures = false;
     this.render();
   }
@@ -1014,32 +1137,80 @@ class App {
       return;
     }
     await this.leaveAttempt();
+    if (this.reviewing) {
+      this.reviewing = false;
+      this.reviewDone = true;
+    }
     if (this.isStair()) this.stairIndex = index;
     else if (this.mode() === "breath_octave") this.wantOctave = index === 1;
     else this.phraseIndex = index;
     this.heardPhrase = false;
     this.playedPhrase = false;
+    this.modelHeard = false;
+    this.refReady = null;
+    this.isolating = false;
+    this.isolateNote = null;
+    this.hasTake = false;
     this.render();
   }
 
   async refreshHear(): Promise<void> {
     const btn = document.querySelector("#hear-btn") as HTMLButtonElement | null;
     const slow = document.querySelector("#hear-slow") as HTMLButtonElement | null;
+    const note = document.querySelector("#tone-note") as HTMLElement | null;
     if (!btn) return;
-    const rel = this.refPath();
-    if (!rel || this.hearAudio) {
-      btn.hidden = !this.hearAudio;
+    const playing = this.hearAudio != null || this.hearTones != null;
+    if (playing) {
+      btn.hidden = false;
+      btn.textContent = "Stop";
       if (slow) slow.hidden = true;
+      if (note) note.hidden = !this.toneGuide;
       return;
     }
-    try {
-      const ok = await invoke<boolean>("ref_available", { relative: rel });
-      btn.hidden = !ok;
-      if (slow) slow.hidden = !ok || this.isOrnament();
-    } catch {
-      btn.hidden = true;
-      if (slow) slow.hidden = true;
+    btn.textContent = "Hear";
+    const rel = this.refPath();
+    let wav = false;
+    if (rel) {
+      try {
+        wav = await invoke<boolean>("ref_available", { relative: rel });
+      } catch {
+        wav = false;
+      }
     }
+    const tones = !wav && this.toneEvents() != null;
+    const changed = this.refReady !== wav;
+    this.refReady = wav;
+    this.toneGuide = tones;
+    const gate = this.primaryHearsNow() && !playing;
+    btn.hidden = gate || (!wav && !tones);
+    if (slow) slow.hidden = (!wav && !tones) || this.isOrnament();
+    if (note) note.hidden = !tones;
+    if (changed && this.listenState === "idle" && !playing) this.render();
+  }
+
+  toneBreak(): number {
+    return this.isCalibrated() ? this.profile!.break_hz : 293.66;
+  }
+
+  toneEvents(): ToneEvent[] | null {
+    const base = this.toneBreak();
+    if (this.isOrnament()) {
+      const events = ornamentEvents(this.node()?.gesture || "", noteHz(this.currentNote(), base));
+      return events.length > 0 ? events : null;
+    }
+    let abc = "";
+    let notes: string[] = [];
+    if (this.mode() === "on_the_breath") {
+      abc = this.pack.phrases.on_the_breath.abc;
+      notes = this.pack.phrases.on_the_breath.notes;
+    } else if (this.isPhraseNode()) {
+      const chunk = this.pack.phrases.chunks[this.phraseIndex];
+      abc = chunk?.abc ?? "";
+      notes = chunk?.notes ?? [];
+    }
+    if (!abc.trim()) return null;
+    const events = phraseEvents(abc, notes, base);
+    return events.some((event) => event.hz > 0) ? events : null;
   }
 
   refPath(): string | null {
@@ -1057,6 +1228,9 @@ class App {
   }
 
   stopHear(): void {
+    const tones = this.hearTones;
+    this.hearTones = null;
+    tones?.stop();
     const audio = this.hearAudio;
     this.hearAudio = null;
     if (audio) {
@@ -1071,18 +1245,17 @@ class App {
     }
   }
 
-  async finishHear(token: number): Promise<void> {
+  async finishHear(token: number, completed = false): Promise<void> {
     if (token !== this.hearToken) return;
+    if (completed && this.hearKind === "model") this.modelHeard = true;
     this.stopHear();
     await invoke("set_grading", { enabled: true });
-    if (this.listenState === "wait") {
-      this.listenState = "idle";
-      this.render();
-    }
+    if (this.listenState === "wait") this.listenState = "idle";
+    this.render();
   }
 
   async onHear(rate = 1): Promise<void> {
-    if (this.hearAudio) {
+    if (this.hearAudio || this.hearTones) {
       this.hearToken += 1;
       this.stopHear();
       await invoke("set_grading", { enabled: true });
@@ -1091,10 +1264,30 @@ class App {
       return;
     }
     const rel = this.refPath();
-    if (!rel) return;
+    if (rel) {
+      try {
+        const ok = await invoke<boolean>("ref_available", { relative: rel });
+        if (ok) {
+          this.toneGuide = false;
+          if (this.isOrnament()) rate = 1;
+          await this.playWav(rel, rate);
+          return;
+        }
+      } catch {
+        /* the notes still play */
+      }
+    }
+    const events = this.toneEvents();
+    if (!events) return;
     if (this.isOrnament()) rate = 1;
+    this.toneGuide = true;
+    await this.playToneEvents(events, rate);
+  }
+
+  async playWav(rel: string, rate: number): Promise<void> {
     const raw = await invoke<ArrayBuffer | number[]>("read_ref", { relative: rel });
     const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
+    this.hearKind = "model";
     this.hearToken += 1;
     const token = this.hearToken;
     const blob = new Blob([bytes], { type: "audio/wav" });
@@ -1109,18 +1302,80 @@ class App {
     this.remark = "";
     this.render();
     audio.onended = () => {
-      void this.finishHear(token);
+      void this.finishHear(token, true);
     };
     try {
       await audio.play();
     } catch {
-      await this.finishHear(token);
+      this.modelHeard = true;
+      await this.finishHear(token, false);
     }
+  }
+
+  async playToneEvents(events: ToneEvent[], rate: number): Promise<void> {
+    this.hearToken += 1;
+    const token = this.hearToken;
+    await invoke("set_grading", { enabled: false });
+    this.listenState = "wait";
+    this.heardPhrase = true;
+    this.remark = "";
+    this.hearTones = playTones(events, rate, () => {
+      void this.finishHear(token);
+    });
+    this.render();
+  }
+
+  async onHearThat(): Promise<void> {
+    if (this.hearAudio || this.hearTones) {
+      this.hearToken += 1;
+      this.stopHear();
+      this.render();
+      return;
+    }
+    try {
+      const raw = await invoke<ArrayBuffer | number[]>("read_last_take");
+      const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
+      if (bytes.length < 44) return;
+      this.hearKind = "take";
+      this.hearToken += 1;
+      const token = this.hearToken;
+      const blob = new Blob([bytes], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      this.hearUrl = url;
+      this.hearAudio = audio;
+      this.render();
+      audio.onended = () => {
+        void this.finishHear(token, true);
+      };
+      try {
+        await audio.play();
+      } catch {
+        await this.finishHear(token, false);
+      }
+    } catch {
+      this.hasTake = false;
+      this.render();
+    }
+  }
+
+  async onJustThat(): Promise<void> {
+    if (!this.isolateNote || this.listenState === "sounding" || this.listenState === "wait") return;
+    this.isolating = true;
+    this.modelHeard = true;
+    this.listenState = "idle";
+    this.remark = "";
+    this.ghost = null;
+    this.render();
+    await this.onPrimary();
   }
 
   attemptArgs(): Record<string, unknown> {
     const node_id = this.nodeId;
     if (this.recalibrating) return { node_id, mode: "first_sound", recalibrate: true };
+    if (this.isolating && this.isolateNote) {
+      return { node_id, mode: "single_note", note: this.isolateNote, record: false };
+    }
     const mode = this.mode();
     if (mode === "first_sound") return { node_id, mode: "first_sound" };
     if (mode === "staircase") return { node_id, mode: "single_note", note: this.currentNote() };
@@ -1191,7 +1446,19 @@ class App {
       await this.settlePage();
       return;
     }
-    if (this.hearAudio) {
+    if (this.primaryHearsNow()) {
+      if (this.hearAudio || this.hearTones) {
+        this.hearToken += 1;
+        this.stopHear();
+        await invoke("set_grading", { enabled: true });
+        this.listenState = "idle";
+        this.render();
+        return;
+      }
+      await this.onHear(1);
+      return;
+    }
+    if (this.hearAudio || this.hearTones) {
       this.hearToken += 1;
       this.stopHear();
       await invoke("set_grading", { enabled: true });
@@ -1202,7 +1469,10 @@ class App {
       this.ghost = null;
       this.holdRatio = 0;
       this.listenState = "wait";
-      const args = this.attemptArgs();
+      const args = {
+        ...this.attemptArgs(),
+        record: !(this.reviewing || this.isolating),
+      };
       // Tauri 2: flatten or nest? Our command expects `args: StartAttemptArgs`
       const res = await invoke<{ ok: boolean; mic: boolean; target_hz?: number }>(
         "start_attempt",
@@ -1293,9 +1563,11 @@ class App {
       warm: boolean;
       cnat_disagree: boolean;
       ghost: GhostTrace | null;
+      isolate_note: string | null;
+      has_take: boolean;
     }>("finish_attempt", {
       nodeId: this.nodeId,
-      markSettled: wasRecal ? false : markSettled,
+      markSettled: wasRecal || this.reviewing || this.isolating ? false : markSettled,
       recalibrate: wasRecal,
       cnatFingering:
         this.cnatAlt && this.pack.manifest.id === "c-natural" && this.nodeId === "cnat_hold"
@@ -1320,6 +1592,10 @@ class App {
     );
     this.ghost = result.ghost;
     this.ghostEvidence = result.evidence;
+    this.hasTake = result.has_take;
+    const spot = this.isolating;
+    if (!spot && this.isPhraseNode()) this.isolateNote = result.isolate_note;
+    else this.isolateNote = null;
     this.warmWhistle = wasRecal && result.settled ? false : result.warm;
     if (
       result.cnat_disagree &&
@@ -1331,6 +1607,7 @@ class App {
     this.recalibrating = false;
     this.listenState = "feedback";
     this.playedPhrase = true;
+    if (spot) this.isolating = false;
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     if (this.profile) {
@@ -1340,7 +1617,7 @@ class App {
       if (refreshed) this.profile = refreshed;
     }
 
-    if (result.settled && !wasRecal) {
+    if (result.settled && !wasRecal && !this.reviewing && !spot) {
       await this.advanceAfterSettle();
     }
     this.render();
@@ -1370,6 +1647,10 @@ class App {
   }
 
   async advanceAfterSettle(): Promise<void> {
+    this.modelHeard = false;
+    this.refReady = null;
+    this.isolateNote = null;
+    this.hasTake = false;
     if (this.isStair()) {
       if (this.stairIndex + 1 < this.pack.phrases.staircase_notes.length) {
         this.stairIndex += 1;

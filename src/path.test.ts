@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   practiceNavHtml,
+  primaryHears,
   resumeIndex,
+  reviewCell,
   stepNavHtml,
   stepsForNode,
   type ProgressMark,
@@ -106,4 +108,77 @@ test("staircase notes, the octave, and air phrases can each be opened", () => {
     chunkLabels: ["Opening"],
   }).length, 0);
   assert.equal(stepNavHtml([{ label: "Only" }], 0), "");
+});
+
+const modes: Record<string, string> = {
+  first_sound: "first_sound",
+  staircase: "staircase",
+  breath_octave: "breath_octave",
+  hedwig: "page",
+  on_the_breath: "on_the_breath",
+  air_bare: "phrase",
+  orn_cut: "ornament",
+  air_may_morning_dew: "phrase",
+};
+
+test("a sitting reviews the last settled listen step", () => {
+  assert.equal(
+    reviewCell({
+      nodeIds: ids,
+      modes,
+      progress: [],
+      stairCount: 6,
+      phraseCount: 4,
+    }),
+    null,
+  );
+  assert.equal(
+    reviewCell({
+      nodeIds: ids,
+      modes,
+      progress: [{ node_id: "hedwig", state_reached: "settled" }],
+      stairCount: 6,
+      phraseCount: 4,
+    }),
+    null,
+  );
+  const hold = reviewCell({
+    nodeIds: ids,
+    modes,
+    progress: [{ node_id: "first_sound", state_reached: "settled" }],
+    stairCount: 6,
+    phraseCount: 4,
+  });
+  assert.deepEqual(hold, { nodeIndex: 0, stepIndex: 0 });
+  const stair = reviewCell({
+    nodeIds: ids,
+    modes,
+    progress: [
+      { node_id: "first_sound", state_reached: "settled" },
+      { node_id: "staircase", state_reached: "settled" },
+      { node_id: "hedwig", state_reached: "settled" },
+    ],
+    stairCount: 6,
+    phraseCount: 4,
+  });
+  assert.deepEqual(stair, { nodeIndex: 1, stepIndex: 5 });
+  const air = reviewCell({
+    nodeIds: ids,
+    modes,
+    progress: [
+      { node_id: "first_sound", state_reached: "settled" },
+      { node_id: "air_bare", state_reached: "settled" },
+    ],
+    stairCount: 6,
+    phraseCount: 4,
+  });
+  assert.deepEqual(air, { nodeIndex: 5, stepIndex: 3 });
+});
+
+test("Hear is the primary action until the model has played", () => {
+  assert.equal(primaryHears({ hasRef: true, heard: false, playing: false, inAttempt: false }), true);
+  assert.equal(primaryHears({ hasRef: false, heard: false, playing: false, inAttempt: false }), false);
+  assert.equal(primaryHears({ hasRef: true, heard: true, playing: false, inAttempt: false }), false);
+  assert.equal(primaryHears({ hasRef: true, heard: false, playing: false, inAttempt: true }), false);
+  assert.equal(primaryHears({ hasRef: true, heard: false, playing: true, inAttempt: false }), true);
 });

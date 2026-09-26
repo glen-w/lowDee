@@ -103,14 +103,14 @@ flowchart TB
 
 | Module | Owns |
 | --- | --- |
-| `src/main.ts` | Screen state: which pack, which node, which stair note, which phrase, listen pill, Hear and Slower, polling, warm-up, glossary, shelf, desk, the tube page. |
-| `src/path.ts` | The practice rail and the note-or-phrase row. It does not write progress. |
+| `src/main.ts` | Screen state: which pack, which node, which stair note, which phrase, listen pill, Hear and Slower, the review, polling, warm-up, glossary, shelf, desk, the tube page. |
+| `src/path.ts` | The practice rail, the note-or-phrase row, which step a sitting reviews, and when Hear is the primary action. It does not write progress. |
 | `src/ghost.ts` | The phrase line drawn under the remark after feedback. |
 | `src/desk.ts` | The one-folder desk. It does not load packs. |
 | `src/cnat.ts` | The second C-natural picture, offered only after this stick disagrees. |
 | `src/about.ts` | The “this tube” page: whistory, the transposition refusal, and a name-only list. Wording is ours; the rules are in [CONCEPT.md](CONCEPT.md). |
 | `src/glossary.ts` | Glossary copy and the word list: whistle, ornaments, tune types. |
-| `src/picture.ts` | The low-D drawing: the tube, a column per note when the step has several, a gesture mark on a column, the letter, and the reader’s sol-fa under the staff. |
+| `src/picture.ts` | The low-D drawing: the tube, a column per note when the step has several, the hole a cut or tap moves, the letter and its sol-fa, and the reader’s sol-fa again under the staff. |
 | `src/warmup.ts` | The hands-and-breath pass. It is not stored. |
 | `src/preview.ts` | Dev-only picture fixture. `tauri dev` with `?preview=picture`. |
 | `src/path-preview.ts` | Dev-only rail fixture. `?nav`. |
@@ -119,17 +119,17 @@ flowchart TB
 | `pack.rs` | The catalog: every pack folder, the chain, and reference paths inside `ref/*.wav`. |
 | `store.rs` | `low-d-store.json`: profiles and progress. |
 | `listen/mic.rs` | cpal input on its own thread. The stream is not `Send` on macOS, so the thread holds it and the rest of the app holds `Arc` handles. |
-| `listen/attempt.rs` | Hop windows, frozen target, evidence at the end of an attempt. |
+| `listen/attempt.rs` | Hop windows, frozen target, evidence at the end of an attempt, the note a phrase fault names, and the capped take. |
 | `listen/pitch.rs` | YIN tracker, band about 250–1600 Hz, plus a search near the expected note. |
 | `listen/rms.rs` | Energy of a window, used as a breath proxy. |
 | `listen/ornaments.rs` | Cut, tap, roll, short roll, slide, cran, double tap, and triplet on a pitch contour. Messy contours abstain. |
-| `listen/synth.rs` | Sine, noise, and the named fixtures. Reads and writes wavs for the bench. Not used by the practice screen. |
+| `listen/synth.rs` | Sine, noise, the named fixtures, and a wav in memory for the last take. The practice screen plays that wav. It is not written to the store. |
 | `listen/take.rs` | Grades one wav against a sidecar: mode, notes, expected evidence, whether it should settle. |
 | `listen/types.rs` | Note names through B5, cents, profile struct, tolerances. |
 | `listen/fingering.rs` | The hole chart the pack is checked against, and which single hole a leak names. |
 | `listen/evidence.rs` | Evidence enum and the four listen-state names. |
 
-`AppState` holds the catalog, the pack on screen, the store directory, the live `MicSession`, and the frozen target hertz for the attempt on screen.
+`AppState` holds the catalog, the pack on screen, the store directory, the live `MicSession`, the frozen target hertz for the attempt on screen, and the last take. The take is wav bytes in memory. `drop_attempt` and the next `start_attempt` clear it. `read_last_take` returns those bytes. A couldn’t-hear and an abstain store nothing.
 
 ## Startup
 
@@ -181,7 +181,7 @@ Buttons:
 | --- | --- | --- |
 | I’m ready / I’m done / Try again | Listen nodes | Starts an attempt, ends one, or clears feedback and starts again. |
 | Letter notes in D | A page node with an https URL | `openUrl` on that page. |
-| I’ve played the opening / I’ve heard it | Page nodes, including `hedwig` and `vibrato` | Marks the node settled (`stepped`) and moves on. Nothing was graded. |
+| I’ve played the opening / I’ve heard it / Not yet — continue | Page nodes, including `hedwig` and `vibrato` | Marks the node settled (`stepped`) and moves on. Nothing was graded. |
 | Hear / Slower / Stop | A `ref/*.wav` exists for this step | Hear plays that file. Slower plays a phrase or a held note at three-quarter speed. An ornament demo is full speed only, so a cut is not stretched into a note. While Hear plays, it becomes Stop and Slower hides. Grading is off for the duration. |
 | Recalibrate | A break is stored, and no attempt is open | Starts a low-D hold. On settle, writes `break_hz` and `rms_floor` once. Does not mark the node on screen. |
 | Reading / Background | A profile exists, and no attempt is open | `update_profile_answers`. Pictures and the remark change. The break does not. |
@@ -196,7 +196,7 @@ Buttons:
 | Practice rail | Always | Opens that node. Releases the microphone if an attempt or Hear was running. Writes no progress. |
 | Note or phrase | Staircase, octave, and phrase nodes | Opens that note or phrase. Low D and Octave switch the expected note between D4 and D5. Same release, no progress write. |
 
-Letter names on the holes come from the fingering file. The staff is abcjs, and only when `reads` is `some` or `yes`, the player has pressed Hear or Slower on this phrase, pictures are showing, and the node mode is `on_the_breath` or `phrase`. The header uses the pack’s meter and key. Under that staff the webview adds the letter names and the sol-fa from the concept. Node prose lives on the pack’s `nodes`. `NODE_COPY` in the webview is the fallback when a node has no copy of its own.
+Letter names on the holes come from the fingering file, and the fixed-do syllable sits beside each letter. The staff is abcjs, and only when `reads` is `some` or `yes`, the player has pressed Hear or Slower on this phrase, pictures are showing, and the node mode is `on_the_breath` or `phrase`. The header uses the pack’s meter and key. Under that staff the webview adds the letter names and the sol-fa from the concept. A cut, tap, or roll marks the hole that moves, on the tube and on that note’s column. Node prose lives on the pack’s `nodes`. `NODE_COPY` in the webview is the fallback when a node has no copy of its own.
 
 ## Listen states on screen
 
@@ -210,10 +210,10 @@ stateDiagram-v2
   idle --> sounding: I’m ready
   feedback --> sounding: Try again
   sounding --> feedback: I’m done
-  wait --> sounding: I’m ready while Hear was playing
+  wait --> sounding: I’m ready, once the model has played
 ```
 
-Hear calls `set_grading` with grading off, so the capture callback drops samples and the app cannot grade its own speaker. I’m ready stops Hear, turns grading back on, then starts the attempt.
+Hear calls `set_grading` with grading off, so the capture callback drops samples and the app cannot grade its own speaker. When a reference wav is on disk, Hear is the primary action until that file has finished once. I’m ready then starts the attempt. A later replay can still be cut short by I’m ready. A missing wav does not block the step. Tones, when Hear uses them, are not that gate.
 
 While an attempt is open the webview polls `poll_frame` every 120 ms. I’m ready sets the pill to `sounding` as soon as the microphone opens. A frame repaints the whistle, the current column, and a leak ring when the frame names one hole. The poll does not rebuild the practice card. The hold bar is the engine’s `hold_ratio` on the first sound (10 s), the staircase (0.8 s), and the octave (2 s low, 1.5 s up). On the first sound, a quiet stretch longer than about 0.3 s walks that hold back. An `early_break` frame on the low hold writes that remark immediately; the attempt’s target is left as it was.
 
@@ -240,8 +240,8 @@ sequenceDiagram
   Eng-->>Cmd: AttemptResult
   Cmd->>Cmd: write calibration if the hold settled
   Cmd->>Cmd: set progress settled when the result says so
-  Cmd-->>UI: evidence, target_hz, remark_note, ghost
-  UI->>UI: remarkFor, ghost under the remark, then advance
+  Cmd-->>UI: evidence, target_hz, remark_note, ghost, isolate_note, has_take
+  UI->>UI: remarkFor, ghost under the remark, Hear that if the take was kept, then advance
 ```
 
 `start_attempt` drops any previous session first. The config’s sample rate is replaced by the device rate. Hop length stays 30 ms (10 ms on the ornament fixtures in the bench). If the microphone will not open, the command returns `ok: false` and `mic: false`, and it does not mark the node started. The screen stays `idle` and shows the couldn’t-hear remark. Finish with no session yields `couldnt_hear`.
@@ -336,7 +336,7 @@ pack/<id>/
 
 `manifest.json` fields the loader keeps include `id`, `version`, `track`, `title`, `node_ids`, `nodes`, `pages`, `content_hash`, `wave`, `after`, `book_ref`, `shelf`, `rights`, `aka`, `source`, `session`, and `pulse`. The hash covers those fields, each page, each node, and the content files that are present. `load_pack` refuses a mismatch. A `page_only` pack with a tune or a wav is refused. `phrases.json` on the door holds four chunks of *The May Morning Dew*. Later packs hold their own lines. The staff draws the chunk’s abc, in the pack’s meter and key. `fingering-low-d.json` is six holes, top to bottom `L1`…`R3`. The loader checks each note the pack asks for against `listen/fingering.rs`. Notes above the break use the same holes and octave 2, through B5. Ornament marks on a phrase are drawn, and graded when the node says so. A cut on a later pack is graded only after `orn_cut` on the door has settled. `ref/` is the only place `read_ref` will read.
 
-Held notes `D4.wav` through `B4.wav` and `D5.wav` are in the tree. Phrase recordings and ornament demos are named by the app and are not in the tree yet; Hear stays hidden for those steps. Where the held notes came from is in `pack/may-morning-dew/ref/README.md`.
+Held notes `D4.wav` through `B4.wav` and `D5.wav` are in the tree. Phrase recordings and ornament demos are named by the app and are not in the tree yet; Hear plays the pack’s notes as plain tones for those steps until a wav is there. Where the held notes came from is in `pack/may-morning-dew/ref/README.md`.
 
 ## Store on device
 
