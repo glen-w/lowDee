@@ -19,8 +19,8 @@ dist-ssr
 src-tauri/target
 target
 
-# Local corpus — real beginner takes stay off git
-corpus/
+# Local corpus — real beginner takes stay off git. The guide stays.
+corpus/*
 !corpus/README.md
 
 # Bench output
