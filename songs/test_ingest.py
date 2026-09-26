@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from songs.ingest import HostGate, assemble, delay_for, ingest, polite_get
+from songs.ingest import HostGate, SiteRefused, assemble, delay_for, ingest, polite_get
 from songs.parse import build_midi
 
 
@@ -144,6 +144,24 @@ class Ingest(unittest.TestCase):
         with self.assertRaises(ValueError):
             polite_get("https://evil.example/x", HostGate(), fake.get, fake.sleep)
         self.assertEqual(len(fake.calls), before)
+
+    def test_a_refusal_stops_the_letter_walk(self):
+        class Refuse(Fake):
+            def get(self, url: str) -> bytes:
+                if url.endswith("songs-midis-A.html"):
+                    self.calls.append(url)
+                    raise SiteRefused("http 403")
+                return super().get(url)
+
+        fake = Refuse(_library_pages())
+        songs = [{"pack_id": "practice-air", "queries": ["Practice Air"]}]
+        names = ["songs-midis-A.html", "songs-midis-P.html", "songs-midis-B.html"]
+        with TemporaryDirectory() as tmp:
+            report = ingest(songs, Path(tmp), fake.get, fake.sleep, "2026-09-26", names=names)
+        self.assertEqual(report[0]["status"], "unreadable")
+        self.assertEqual(sum(url.endswith("songs-midis-A.html") for url in fake.calls), 2)
+        self.assertFalse(any(url.endswith("songs-midis-P.html") for url in fake.calls))
+        self.assertFalse(any(url.endswith("songs-midis-B.html") for url in fake.calls))
 
 
 if __name__ == "__main__":
