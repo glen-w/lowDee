@@ -1,0 +1,47 @@
+{
+  "id": "c-natural",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "C natural",
+  "node_ids": [
+    "cnat_hold",
+    "cnat_phrase"
+  ],
+  "nodes": [
+    {
+      "id": "cnat_hold",
+      "mode": "staircase",
+      "title": "C natural",
+      "body": "One fingering. Hear it, then hold it. If it will not seal, that is the remark. We do not offer a second fingering until this one disagrees on this stick.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "cnat_phrase",
+      "mode": "phrase",
+      "title": "C inside a phrase",
+      "body": "The same fingering, between notes you already have. Play from the start of the line.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "8b50a77b8f570b9ee5ba2f89bcd40eaee12b1ebd47252367f00113e5612bf3f4",
+  "wave": 2,
+  "after": "salley-gardens",
+  "book_ref": "Getting Started",
+  "shelf": "path",
+  "rights": "pd",
+  "aka": [],
+  "source": "One fingering that speaks on this whistle: the top hole open, the next two closed, the bottom three open. Checked once. No half-hole menu.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": "oxxooo"
+}

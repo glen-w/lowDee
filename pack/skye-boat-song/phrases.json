@@ -1,0 +1,47 @@
+{
+  "air_title": "Skye Boat Song",
+  "meter": "6/8",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "Carry",
+      "notes": [
+        "D4",
+        "F#4",
+        "A4",
+        "A4",
+        "B4",
+        "A4"
+      ],
+      "abc": "D2 F A | A2 B A",
+      "ref": "ref/line_1.wav",
+      "breaths": [
+        5
+      ]
+    },
+    {
+      "id": "line_2",
+      "label": "Over the sea",
+      "notes": [
+        "F#4",
+        "E4",
+        "D4",
+        "E4",
+        "F#4",
+        "D4"
+      ],
+      "abc": "F2 E D | E2 F D",
+      "ref": "ref/line_2.wav",
+      "breaths": [
+        5
+      ]
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "air_title": "C natural",
+  "meter": "4/4",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "In the line",
+      "notes": [
+        "G4",
+        "A4",
+        "C5",
+        "B4",
+        "A4"
+      ],
+      "abc": "G2 A c | B2 A2",
+      "ref": "ref/line_1.wav"
+    }
+  ],
+  "staircase_notes": [
+    "C5"
+  ],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

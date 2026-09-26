@@ -1,0 +1,149 @@
+{
+  "id": "may-morning-dew",
+  "version": "0.1.0",
+  "track": "beginner",
+  "title": "The May Morning Dew",
+  "node_ids": [
+    "first_sound",
+    "staircase",
+    "breath_octave",
+    "hedwig",
+    "on_the_breath",
+    "air_bare",
+    "orn_cut",
+    "orn_tap",
+    "orn_roll",
+    "air_may_morning_dew"
+  ],
+  "nodes": [
+    {
+      "id": "first_sound",
+      "mode": "first_sound",
+      "title": "First sound",
+      "body": "Whistle to the mouth. Pads on all six holes. A steady low D. Hold until it sits still.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "staircase",
+      "mode": "staircase",
+      "title": "Staircase",
+      "body": "One finger lifts at a time — only the notes the air uses. Hear it, find it, play it back.",
+      "high_d_body": "Fingerings you know. Find them on this tube, one lift at a time.",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "breath_octave",
+      "mode": "breath_octave",
+      "title": "Breath and octave",
+      "body": "Same fingering as low D. Soft air keeps the low one. More air finds the octave — then come home.",
+      "high_d_body": "The low whistle wants slower air than the small one. Soft first, then find the octave on purpose.",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "hedwig",
+      "mode": "page",
+      "title": "Hedwig's Theme",
+      "body": "A tune you already know. Open the letter notes and use the key of D — that is this whistle. The key of C on the same page is for piano, flute, and recorder. Play the opening from those D letters, one note at a time. A high mark is the same holes and more air. The tune stays on that page.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "on_the_breath",
+      "mode": "on_the_breath",
+      "title": "On the breath",
+      "body": "A short phrase. The tongue starts the line, then stays off. Let the notes join.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "air_bare",
+      "mode": "phrase",
+      "title": "The air, bare",
+      "body": "Hear the phrase. See the holes. Play from the start of the chunk.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_cut",
+      "mode": "ornament",
+      "title": "Cut",
+      "body": "On one long note: a finger snaps open and shut, too short to hum, on the pulse.",
+      "high_d_body": "",
+      "gesture": "cut",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_tap",
+      "mode": "ornament",
+      "title": "Tap",
+      "body": "A finger below the sounding note flicks shut and open. Pitch dips and returns.",
+      "high_d_body": "",
+      "gesture": "tap",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_roll",
+      "mode": "ornament",
+      "title": "Roll",
+      "body": "Cut near the start, tap later. The note itself is still the one you meant.",
+      "high_d_body": "",
+      "gesture": "roll",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "air_may_morning_dew",
+      "mode": "phrase",
+      "title": "The May Morning Dew",
+      "body": "The same air, with cut, tap, and roll only where marked. Pictures can hide.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": true,
+      "grade_marks": true
+    }
+  ],
+  "pages": {
+    "hedwig": {
+      "title": "Hedwig's Theme",
+      "url": "https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html",
+      "key": "D"
+    }
+  },
+  "content_hash": "22cb1432a154998addc8dc4fbb53f345b52a149438861e549364151565e36a67",
+  "wave": 1,
+  "after": "",
+  "book_ref": "",
+  "shelf": "path",
+  "rights": "pd",
+  "aka": [],
+  "source": "Teaching setting in D, written for this pack.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

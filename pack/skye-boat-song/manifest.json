@@ -1,0 +1,35 @@
+{
+  "id": "skye-boat-song",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "Skye Boat Song",
+  "node_ids": [
+    "lines"
+  ],
+  "nodes": [
+    {
+      "id": "lines",
+      "mode": "phrase",
+      "title": "Skye Boat Song",
+      "body": "Hear the line, then play it. Breathe on the mark. The boat is not a metronome.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": true,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "cc36003acffb6735e62d132e86a47f6da069ce0f7bbe10604bf8a7ca07b1240b",
+  "wave": 2,
+  "after": "amazing-grace",
+  "book_ref": "First Tones",
+  "shelf": "beginner",
+  "rights": "pd",
+  "aka": [],
+  "source": "Traditional. The familiar English words are Harold Boulton’s, 1884, public domain. Setting written for this pack, in D, with a breath between the carry and the boat.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

@@ -1,0 +1,35 @@
+{
+  "id": "amazing-grace",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "Amazing Grace",
+  "node_ids": [
+    "lines"
+  ],
+  "nodes": [
+    {
+      "id": "lines",
+      "mode": "phrase",
+      "title": "Amazing Grace",
+      "body": "A slow tune in D. Breathe where the line ends. A breath in the middle of the line is the remark. The words are not a score.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": true,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "45672ec45bdd97d52da7b99d261785ac1c3e17d704b76544a3b2ce9453c859b8",
+  "wave": 2,
+  "after": "as-i-roved-out",
+  "book_ref": "First Tones",
+  "shelf": "beginner",
+  "rights": "pd",
+  "aka": [],
+  "source": "John Newton, melody New Britain, public domain. Setting written for this pack, in D, with a breath at the end of the line.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

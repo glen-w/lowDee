@@ -1,0 +1,37 @@
+{
+  "id": "as-i-roved-out",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "As I Roved Out",
+  "node_ids": [
+    "lines"
+  ],
+  "nodes": [
+    {
+      "id": "lines",
+      "mode": "phrase",
+      "title": "As I Roved Out",
+      "body": "A dorian. C natural is the one you just found. One line crosses the break on purpose: same holes, more air, then home. Words after you have heard the line. Singing stays ungraded.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": true,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "b3a903147eca2c99710dfe0d39459f47ad1298db10acb8881ea3ff7540810a36",
+  "wave": 2,
+  "after": "c-natural",
+  "book_ref": "",
+  "shelf": "path",
+  "rights": "pd",
+  "aka": [
+    "Roud 3479"
+  ],
+  "source": "Traditional song, Roud 3479, the Fermanagh line. Not a polka. Setting written for this pack: the body in the first octave, C natural in the line, one phrase across the break. Opening words of the traditional song.",
+  "session": "https://thesession.org/tunes/search?q=As+I+Roved+Out",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

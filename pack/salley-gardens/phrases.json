@@ -1,0 +1,71 @@
+{
+  "air_title": "Down by the Salley Gardens",
+  "meter": "4/4",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "Gardens",
+      "notes": [
+        "D4",
+        "F#4",
+        "A4",
+        "B4",
+        "A4",
+        "F#4",
+        "D4"
+      ],
+      "abc": "D2 F A | B2 A F | D4",
+      "ref": "ref/line_1.wav"
+    },
+    {
+      "id": "line_2",
+      "label": "We met",
+      "notes": [
+        "D4",
+        "E4",
+        "F#4",
+        "G4",
+        "A4",
+        "F#4",
+        "D4"
+      ],
+      "abc": "D2 E F | G2 A F | D4",
+      "ref": "ref/line_2.wav"
+    },
+    {
+      "id": "line_3",
+      "label": "She passed",
+      "notes": [
+        "A4",
+        "B4",
+        "A4",
+        "G4",
+        "F#4",
+        "E4",
+        "D4"
+      ],
+      "abc": "A2 B A | G2 F E | D4",
+      "ref": "ref/line_3.wav"
+    },
+    {
+      "id": "line_4",
+      "label": "Snow-white feet",
+      "notes": [
+        "E4",
+        "F#4",
+        "G4",
+        "E4",
+        "D4"
+      ],
+      "abc": "E2 F G | E2 D2",
+      "ref": "ref/line_4.wav"
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

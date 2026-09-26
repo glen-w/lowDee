@@ -1,0 +1,83 @@
+{
+  "id": "more-ornament",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "More ornament",
+  "node_ids": [
+    "orn_slide",
+    "orn_cran",
+    "orn_double_tap",
+    "orn_triplet",
+    "vibrato"
+  ],
+  "nodes": [
+    {
+      "id": "orn_slide",
+      "mode": "ornament",
+      "title": "Slide",
+      "body": "The pitch moves and arrives. A jump is not a slide. If the contour is messy, nothing is said.",
+      "high_d_body": "",
+      "gesture": "slide",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_cran",
+      "mode": "ornament",
+      "title": "Cran",
+      "body": "On low D: a tight figure, cuts and taps, the note still D. Demonstrated before it is asked. Silence is allowed.",
+      "high_d_body": "",
+      "gesture": "cran",
+      "note": "D4",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_double_tap",
+      "mode": "ornament",
+      "title": "Double tap",
+      "body": "Two taps on the one note. Too short to hum. If it is unclear, the loop stays quiet.",
+      "high_d_body": "",
+      "gesture": "double_tap",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "orn_triplet",
+      "mode": "ornament",
+      "title": "Triplet",
+      "body": "Three notes in the time of one, then you are back. The detector may abstain.",
+      "high_d_body": "",
+      "gesture": "triplet",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "vibrato",
+      "mode": "vibrato",
+      "title": "Vibrato",
+      "body": "A shimmer on a long note, made with the air, not a finger treated as a grade. You can name it. The app almost never remarks on it.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "9291419fb5ae9ae7f3970c057b0e64bc8109d711d59f8fb4f36ff1638df32329",
+  "wave": 2,
+  "after": "melancholy-martin",
+  "book_ref": "More ornament",
+  "shelf": "improver",
+  "rights": "pd",
+  "aka": [],
+  "source": "Gestures named for this pack. Each is demonstrated, then asked. The detector may stay silent. Vibrato is named and almost never remarked on.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

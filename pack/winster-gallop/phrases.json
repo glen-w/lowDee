@@ -1,0 +1,42 @@
+{
+  "air_title": "The Winster Gallop",
+  "meter": "2/4",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "Out",
+      "notes": [
+        "D4",
+        "F#4",
+        "A4",
+        "D5",
+        "A4",
+        "F#4",
+        "D4"
+      ],
+      "abc": "D2 F A d | A2 F D",
+      "ref": "ref/line_1.wav"
+    },
+    {
+      "id": "line_2",
+      "label": "Home",
+      "notes": [
+        "B4",
+        "A4",
+        "G4",
+        "F#4",
+        "E4",
+        "D4"
+      ],
+      "abc": "B2 A G | F2 E D",
+      "ref": "ref/line_2.wav"
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

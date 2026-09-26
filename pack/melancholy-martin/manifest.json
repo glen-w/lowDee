@@ -1,0 +1,47 @@
+{
+  "id": "melancholy-martin",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "Melancholy Martin",
+  "node_ids": [
+    "orn_short_roll",
+    "lines"
+  ],
+  "nodes": [
+    {
+      "id": "orn_short_roll",
+      "mode": "ornament",
+      "title": "Short roll",
+      "body": "The same cut and tap, with less room. If it becomes two notes, that is the remark.",
+      "high_d_body": "",
+      "gesture": "short_roll",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    },
+    {
+      "id": "lines",
+      "mode": "phrase",
+      "title": "Melancholy Martin",
+      "body": "The slip jig, slowed. The short roll only where it is marked.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": true
+    }
+  ],
+  "pages": {},
+  "content_hash": "141a6534315c1072c44433e6c7d3eb7c7cfcd4ea9f2b7d7e0e9028aacf95cdf4",
+  "wave": 2,
+  "after": "green-gates",
+  "book_ref": "Rolls",
+  "shelf": "improver",
+  "rights": "pd",
+  "aka": [],
+  "source": "Traditional slip jig. Francis O’Neill, O’Neill’s Music of Ireland (1903), no. 1154. Setting written for this pack. Short roll on a long note first.",
+  "session": "https://thesession.org/tunes/search?q=Melancholy+Martin",
+  "pulse": "Slip jig",
+  "pulse_beats": 9,
+  "cnat_id": ""
+}

@@ -1,0 +1,69 @@
+{
+  "sealed": {
+    "default": "Holes aren\u2019t quite sealed.",
+    "reads_yes": "The bottom holes aren\u2019t sealed.",
+    "C5": "C natural that did not seal."
+  },
+  "low_d_held": {
+    "default": "That\u2019s the low one."
+  },
+  "early_break": {
+    "default": "Softer \u2014 stay on the low one.",
+    "high_d": "Softer \u2014 the low whistle wants slower air than the small one."
+  },
+  "octave_there": {
+    "default": "Octave\u2019s there.",
+    "high_d": "Octave\u2019s there \u2014 come home soft."
+  },
+  "broke_early": {
+    "default": "Broke early."
+  },
+  "restarted_notes": {
+    "default": "Each note is restarted.",
+    "wind": "You restarted every note. Start once, and let the rest join."
+  },
+  "let_them_join": {
+    "default": "Let them join."
+  },
+  "still_d": {
+    "default": "That\u2019s still D \u2014 the bottom finger is down."
+  },
+  "note_found": {
+    "default": "That\u2019s it.",
+    "E4": "E is there.",
+    "F#4": "F\u266f is there.",
+    "G4": "G is there.",
+    "A4": "A is there.",
+    "B4": "B is there."
+  },
+  "couldnt_hear": {
+    "default": "Couldn\u2019t hear. Come a little closer to the mic and play it again."
+  },
+  "cut_too_long": {
+    "default": "That cut turned into its own note."
+  },
+  "tap_missing": {
+    "default": "The tap didn\u2019t arrive."
+  },
+  "abstain": {
+    "default": ""
+  },
+  "phrase_ok": {
+    "default": "That phrase is there."
+  },
+  "headphones": {
+    "default": "Use headphones so the app doesn\u2019t hear itself."
+  },
+  "breath_chops": {
+    "default": "Breath that chops the line."
+  },
+  "cracked": {
+    "default": "That fell back to the low one."
+  },
+  "became_notes": {
+    "default": "That became two notes."
+  },
+  "slide_missed": {
+    "default": "The slide didn\u2019t arrive."
+  }
+}

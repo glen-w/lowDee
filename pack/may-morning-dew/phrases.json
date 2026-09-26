@@ -1,0 +1,39 @@
+{
+  "air_title": "The May Morning Dew",
+  "chunks": [
+    {
+      "id": "phrase_1",
+      "label": "Opening",
+      "notes": ["D4", "E4", "F#4", "G4", "A4"],
+      "abc": "D2 E | F2 G | A3",
+      "ref": "ref/phrase_1.wav"
+    },
+    {
+      "id": "phrase_2",
+      "label": "Home again",
+      "notes": ["A4", "F#4", "G4", "E4", "D4"],
+      "abc": "A2 F | G2 E | D3",
+      "ref": "ref/phrase_2.wav"
+    },
+    {
+      "id": "phrase_3",
+      "label": "Second strain",
+      "notes": ["A4", "B4", "A4", "F#4", "G4", "E4"],
+      "abc": "A2 B | A2 F | G2 E",
+      "ref": "ref/phrase_3.wav"
+    },
+    {
+      "id": "phrase_4",
+      "label": "Close",
+      "notes": ["F#4", "D4", "E4", "D4"],
+      "abc": "F2 D | E2 D | D3",
+      "ref": "ref/phrase_4.wav"
+    }
+  ],
+  "staircase_notes": ["D4", "E4", "F#4", "G4", "A4", "B4"],
+  "on_the_breath": {
+    "notes": ["D4", "E4", "F#4", "G4"],
+    "abc": "D2 E | F2 G",
+    "ref": "ref/on_the_breath.wav"
+  }
+}

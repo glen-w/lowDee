@@ -1,0 +1,14 @@
+{
+  "gestures": {
+    "cut": { "max_ms": 70, "direction": "up" },
+    "tap": { "max_ms": 70, "direction": "down" },
+    "roll": { "parts": ["cut", "tap"] }
+  },
+  "demo_note": "A4",
+  "marks": [
+    { "chunk_id": "phrase_1", "note_index": 0, "gesture": "cut" },
+    { "chunk_id": "phrase_1", "note_index": 4, "gesture": "tap" },
+    { "chunk_id": "phrase_2", "note_index": 0, "gesture": "roll" },
+    { "chunk_id": "phrase_4", "note_index": 3, "gesture": "cut" }
+  ]
+}

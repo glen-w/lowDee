@@ -1,0 +1,197 @@
+{
+  "holes_top_to_bottom": [
+    "L1",
+    "L2",
+    "L3",
+    "R1",
+    "R2",
+    "R3"
+  ],
+  "notes": {
+    "D4": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed"
+      ],
+      "octave": 1,
+      "label": "D"
+    },
+    "E4": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "open"
+      ],
+      "octave": 1,
+      "label": "E"
+    },
+    "F#4": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "F\u266f"
+    },
+    "G4": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "G"
+    },
+    "A4": {
+      "holes": [
+        "closed",
+        "closed",
+        "open",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "A"
+    },
+    "B4": {
+      "holes": [
+        "closed",
+        "open",
+        "open",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "B"
+    },
+    "C5": {
+      "holes": [
+        "open",
+        "closed",
+        "closed",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "C",
+      "half": false
+    },
+    "C#5": {
+      "holes": [
+        "open",
+        "open",
+        "open",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 1,
+      "label": "C\u266f"
+    },
+    "D5": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed"
+      ],
+      "octave": 2,
+      "label": "D\u2032"
+    },
+    "E5": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "open"
+      ],
+      "octave": 2,
+      "label": "E\u2032"
+    },
+    "F#5": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "closed",
+        "open",
+        "open"
+      ],
+      "octave": 2,
+      "label": "F\u266f\u2032"
+    },
+    "G5": {
+      "holes": [
+        "closed",
+        "closed",
+        "closed",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 2,
+      "label": "G\u2032"
+    },
+    "A5": {
+      "holes": [
+        "closed",
+        "closed",
+        "open",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 2,
+      "label": "A\u2032"
+    },
+    "B5": {
+      "holes": [
+        "closed",
+        "open",
+        "open",
+        "open",
+        "open",
+        "open"
+      ],
+      "octave": 2,
+      "label": "B\u2032"
+    }
+  },
+  "intervals_from_break": {
+    "D4": 0,
+    "E4": 2,
+    "F#4": 4,
+    "G4": 5,
+    "A4": 7,
+    "B4": 9,
+    "C5": 10,
+    "C#5": 11,
+    "D5": 12,
+    "E5": 14,
+    "F#5": 16,
+    "G5": 17,
+    "A5": 19,
+    "B5": 21
+  }
+}

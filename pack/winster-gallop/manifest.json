@@ -1,0 +1,35 @@
+{
+  "id": "winster-gallop",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "The Winster Gallop",
+  "node_ids": [
+    "lines"
+  ],
+  "nodes": [
+    {
+      "id": "lines",
+      "mode": "phrase",
+      "title": "The Winster Gallop",
+      "body": "A galop, slowed. Two beats, the first a little heavier. Still the phrase, not a click you are scored against.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "1634e0406b1cd09e64e75a70241c4332e14ec6bcb0b828e14aef925a4065ee0a",
+  "wave": 2,
+  "after": "drops-of-brandy",
+  "book_ref": "First Tones",
+  "shelf": "beginner",
+  "rights": "pd",
+  "aka": [],
+  "source": "Traditional English galop, long in the public domain. Slowed setting written for this pack. The pulse is the galop’s, heard, not a grade.",
+  "session": "",
+  "pulse": "Galop",
+  "pulse_beats": 2,
+  "cnat_id": ""
+}

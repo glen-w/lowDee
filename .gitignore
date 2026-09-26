@@ -1,0 +1,32 @@
+logs
+*.log
+npm-debug.log*
+node_modules
+dist
+dist-ssr
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Rust
+src-tauri/target
+target
+
+# Local corpus — real beginner takes stay off git
+corpus/
+!corpus/README.md
+
+# Bench output
+bench/out/
+*.trace.json
+
+# Filled Cursor slash commands (ports, fixtures, probe recipes)
+.cursor/commands/
+.cursor/project-card.md

@@ -1,0 +1,30 @@
+{
+  "name": "low-d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "bench": "python3 bench/score_traces.py",
+    "fixtures": "cargo run --manifest-path src-tauri/Cargo.toml --bin listen -- fixtures",
+    "test:picture": "node --experimental-strip-types --test src/picture.test.ts",
+    "test:glossary": "node --experimental-strip-types --test src/glossary.test.ts",
+    "test:path": "node --experimental-strip-types --test src/path.test.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "abcjs": "^6.4.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

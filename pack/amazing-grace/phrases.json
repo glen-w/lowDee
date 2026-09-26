@@ -1,0 +1,48 @@
+{
+  "air_title": "Amazing Grace",
+  "meter": "3/4",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "How sweet",
+      "notes": [
+        "D4",
+        "G4",
+        "B4",
+        "G4",
+        "B4",
+        "A4",
+        "G4"
+      ],
+      "abc": "D2 G B | G2 B A | G4",
+      "ref": "ref/line_1.wav",
+      "breaths": [
+        6
+      ]
+    },
+    {
+      "id": "line_2",
+      "label": "The hour",
+      "notes": [
+        "D4",
+        "G4",
+        "B4",
+        "D5",
+        "B4",
+        "G4"
+      ],
+      "abc": "D2 G B | d2 B G",
+      "ref": "ref/line_2.wav",
+      "breaths": [
+        5
+      ]
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

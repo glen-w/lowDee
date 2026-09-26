@@ -1,0 +1,30 @@
+{
+  "air_title": "Melancholy Martin",
+  "meter": "9/8",
+  "key": "D",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "Martin",
+      "notes": [
+        "D4",
+        "E4",
+        "F#4",
+        "G4",
+        "A4",
+        "F#4",
+        "G4",
+        "E4",
+        "D4"
+      ],
+      "abc": "D2 E F G2 A | F2 G E2 D",
+      "ref": "ref/line_1.wav"
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

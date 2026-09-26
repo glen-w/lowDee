@@ -1,0 +1,55 @@
+{
+  "air_title": "As I Roved Out",
+  "meter": "4/4",
+  "key": "Ador",
+  "chunks": [
+    {
+      "id": "line_1",
+      "label": "May morning",
+      "notes": [
+        "A4",
+        "G4",
+        "A4",
+        "B4",
+        "A4",
+        "G4",
+        "E4"
+      ],
+      "abc": "A2 G A | B2 A G | E4",
+      "ref": "ref/line_1.wav"
+    },
+    {
+      "id": "line_2",
+      "label": "C natural",
+      "notes": [
+        "A4",
+        "C5",
+        "B4",
+        "A4",
+        "G4",
+        "E4"
+      ],
+      "abc": "A2 c B | A2 G E",
+      "ref": "ref/line_2.wav"
+    },
+    {
+      "id": "line_3",
+      "label": "Over the break",
+      "notes": [
+        "D5",
+        "E5",
+        "D5",
+        "B4",
+        "A4"
+      ],
+      "abc": "d2 e d | B2 A2",
+      "ref": "ref/line_3.wav"
+    }
+  ],
+  "staircase_notes": [],
+  "on_the_breath": {
+    "notes": [],
+    "abc": "",
+    "ref": ""
+  }
+}

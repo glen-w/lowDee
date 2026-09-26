@@ -1,0 +1,35 @@
+{
+  "id": "book-staircase",
+  "version": "0.1.0",
+  "track": "book",
+  "title": "The book’s notes",
+  "node_ids": [
+    "book_stair"
+  ],
+  "nodes": [
+    {
+      "id": "book_stair",
+      "mode": "staircase",
+      "title": "B down to D, then the octave",
+      "body": "The book begins on B, three fingers down. Hear each note, then find it. Low D you already hold. C♯ is every hole open. The octave D is the same six holes and more air.",
+      "high_d_body": "",
+      "gesture": "",
+      "note": "",
+      "hide_pictures": false,
+      "grade_marks": false
+    }
+  ],
+  "pages": {},
+  "content_hash": "76d8562a5bb5f6c775caf263a49d74320969010859c79ea53bd4bc7a53f8a41e",
+  "wave": 2,
+  "after": "may-morning-dew",
+  "book_ref": "Getting Started",
+  "shelf": "path",
+  "rights": "pd",
+  "aka": [],
+  "source": "The order is the book’s. The notes and the pictures are ours. Low D is already known.",
+  "session": "",
+  "pulse": "",
+  "pulse_beats": 0,
+  "cnat_id": ""
+}

@@ -1,0 +1,32 @@
+{
+  "gestures": {
+    "cut": {
+      "max_ms": 70,
+      "direction": "up"
+    },
+    "tap": {
+      "max_ms": 70,
+      "direction": "down"
+    },
+    "roll": {
+      "parts": [
+        "cut",
+        "tap"
+      ]
+    },
+    "short_roll": {
+      "parts": [
+        "cut",
+        "tap"
+      ]
+    },
+    "slide": {
+      "direction": "up"
+    },
+    "cran": {},
+    "double_tap": {},
+    "triplet": {}
+  },
+  "demo_note": "A4",
+  "marks": []
+}

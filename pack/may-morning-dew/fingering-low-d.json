@@ -1,0 +1,25 @@
+{
+  "holes_top_to_bottom": ["L1", "L2", "L3", "R1", "R2", "R3"],
+  "notes": {
+    "D4": { "holes": ["closed", "closed", "closed", "closed", "closed", "closed"], "octave": 1, "label": "D" },
+    "E4": { "holes": ["closed", "closed", "closed", "closed", "closed", "open"], "octave": 1, "label": "E" },
+    "F#4": { "holes": ["closed", "closed", "closed", "closed", "open", "open"], "octave": 1, "label": "F♯" },
+    "G4": { "holes": ["closed", "closed", "closed", "open", "open", "open"], "octave": 1, "label": "G" },
+    "A4": { "holes": ["closed", "closed", "open", "open", "open", "open"], "octave": 1, "label": "A" },
+    "B4": { "holes": ["closed", "open", "open", "open", "open", "open"], "octave": 1, "label": "B" },
+    "C5": { "holes": ["open", "closed", "closed", "open", "open", "open"], "octave": 1, "label": "C", "half": false },
+    "C#5": { "holes": ["open", "open", "open", "open", "open", "open"], "octave": 1, "label": "C♯" },
+    "D5": { "holes": ["closed", "closed", "closed", "closed", "closed", "closed"], "octave": 2, "label": "D′" }
+  },
+  "intervals_from_break": {
+    "D4": 0,
+    "E4": 2,
+    "F#4": 4,
+    "G4": 5,
+    "A4": 7,
+    "B4": 9,
+    "C5": 10,
+    "C#5": 11,
+    "D5": 12
+  }
+}
