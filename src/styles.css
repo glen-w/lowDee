@@ -501,6 +501,18 @@ h2 {
   transition: width 0.15s linear;
 }
 
+.warm-figure {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.2rem;
+}
+
+.warm-figure-svg {
+  width: min(100%, 340px);
+  height: auto;
+  display: block;
+}
+
 .warm-mark {
   font-size: clamp(2rem, 8vw, 3.25rem);
   line-height: 1.1;

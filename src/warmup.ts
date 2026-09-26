@@ -1,3 +1,5 @@
+import { figureId, warmFigureMarkup, warmIntroFigure } from "./warm-figure.ts";
+
 // One guided pass before each sitting. The whistle stays down.
 // Stretches and wrist motions are the ordinary musician set (finger pulls,
 // wrist up and down, palms together, woven fingers, thumb, table rises,
@@ -264,6 +266,7 @@ export function warmIntroHtml(steps: number, seconds: number): string {
         The whistle stays down. About ${minutes} minutes, ${steps} steps.
       </p>
       <div class="card">
+        <div class="warm-figure">${warmIntroFigure()}</div>
         <p class="remark">Go gently. Ease off if it hurts. Stop if you feel dizzy, numb, or a sharp pull. This warms you up. It is not a treatment.</p>
         <div class="row" style="margin-top:0.5rem">
           <button class="primary" id="warm-begin">Begin</button>
@@ -283,6 +286,7 @@ export function warmRunHtml(): string {
       <h1 id="warm-title"></h1>
       <p class="lede" id="warm-line"></p>
       <div class="card">
+        <div class="warm-figure" id="warm-figure"></div>
         <p class="warm-mark" id="warm-mark"></p>
         <p class="meta" id="warm-left"></p>
         <div class="hold-meter warm-meter"><i id="warm-bar"></i></div>
@@ -325,6 +329,14 @@ export function paintWarm(root: ParentNode, state: WarmPaint): void {
   const bar = root.querySelector("#warm-bar") as HTMLElement | null;
   const all = root.querySelector("#warm-all") as HTMLElement | null;
   const pause = root.querySelector("#warm-pause");
+  const fig = root.querySelector("#warm-figure") as HTMLElement | null;
+  if (fig) {
+    const id = figureId(beat);
+    if (fig.dataset.figure !== id) {
+      fig.dataset.figure = id;
+      fig.innerHTML = warmFigureMarkup(beat);
+    }
+  }
   if (kicker) kicker.textContent = `${groupLabel(beat.group)} · ${state.step} of ${state.steps}`;
   if (title) title.textContent = beat.title;
   if (line) line.textContent = beat.line;
