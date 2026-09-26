@@ -38,8 +38,8 @@ A later sitting skips the card and starts at the warm-up, then the first unsettl
 - Side-view low D, holes numbered 1–6 from the window. Closed is filled, open is a ring, half covers only the hole that says half. A phrase or the staircase is a row of those columns. The letter sits beside the whistle. The second octave is the same holes with a mark by the window.
 - Staff after Hear, for readers, on a joined phrase and on a phrase node, with a letter row and a fixed-do row under that phrase. The staff header uses the pack’s meter and key. A non-reader does not see the staff or the syllables.
 - Hide pictures on a node that asks for it. On a song, words can hide on their own. They show after Hear, or after the line has been played.
-- Hear and Slower, when a reference wav is on disk. Slower plays at three-quarter speed. Grading stays off while either plays. Dance packs add Hear the pulse. Airs do not.
-- One remark after an attempt, from `remarks.json`, worded for reading and background.
+- Hear and Slower, when a reference wav is on disk. Slower plays a phrase or a held note at three-quarter speed. An ornament demo plays at full speed. Grading stays off while either plays. Dance packs add Hear the pulse. Airs do not.
+- One remark after an attempt, from `remarks.json`, worded for reading and background. Under it, after feedback, a quiet line of that attempt against the notes the pack expected. Couldn’t-hear and an ornament that abstains draw nothing.
 - Hold bar from the engine’s settle clock on the first sound, the staircase, and the octave.
 - Low D and Octave on the breath-and-octave part, switching the target between the two.
 - Couldn’t hear — continue, which opens the next node.
@@ -50,6 +50,9 @@ A later sitting skips the card and starts at the warm-up, then the first unsettl
 - This tube, from the name card and from practice: a short page in our words for the low D, other keys, and names to hear elsewhere. No audio.
 - Shelf, once *Down by the Salley Gardens* is settled. It lists the path, beginner, improver, and players shelves, including titles that stay on the page only. Open returns to that pack. A Session link opens in the browser.
 - Another whistle, from the name card and from practice, when more than one profile is stored.
+- Reading and background, on the practice card, after the whistle is named. They change the pictures and the remark. They do not move the break.
+- Recalibrate, between attempts, once a break is stored. It is the same low-D hold. The target of an attempt already open does not move. When a later low hold sits outside the window, the card says the whistle has warmed. There is no needle.
+- A tune on the table, once *The May Morning Dew* is settled. One folder from `teacher/`. Back returns to the path.
 
 ### Listening
 
@@ -60,7 +63,7 @@ A later sitting skips the card and starts at the warm-up, then the first unsettl
 - Target frozen for the attempt. Intervals taken from this whistle’s `break_hz` once the first hold has settled; concert D4 only as the stand-in before that.
 - RMS as a stand-in for how much air is in the note. The floor is stored with the profile.
 - Evidence for a sealed leak, a held low D, an early break, the octave, a note still on D, a note found, a phrase, tongued restarts, a cut that became a note, a missing tap, a breath that chops a line, a high note that fell back down, a short roll that split, a slide that did not arrive, couldn’t hear, and abstain.
-- Calibration written only when the first sound settles: `break_hz`, `rms_floor`, `cal_as_of`. Samples are not kept.
+- Calibration written when the first sound settles, and again when Recalibrate settles: `break_hz`, `rms_floor`, `cal_as_of`. Samples are not kept. An attempt already open keeps the target it started with.
 - If the microphone will not open, the screen stays idle, says it could not hear, and does not mark the node started. A heard pitch that differs by exactly one hole marks that hole. Raw pitch on a note at the break or above can remark that it fell back to the low fingering.
 
 ### Content in the door
@@ -80,7 +83,7 @@ Same folder shape. Each pack names a public-domain source. Chapter names are poi
 
 - `book-staircase` — B, A, G, F♯, E, D, C♯, octave D′. No new air.
 - `salley-gardens` — *Down by the Salley Gardens*, with the Mourne Shore names in `aka`. Words after the line is heard. One cut mark.
-- `c-natural` — the `oxxooo` hold, then a short phrase. A heard settle writes `cnat_fingering`.
+- `c-natural` — the `oxxooo` hold, then a short phrase. If that hold is not the interval and not a one-hole leak, the picture becomes `oxxoxx` (the bottom two holes closed, not a half-hole). A heard settle writes `cnat_fingering`. Stepping past does not.
 - `as-i-roved-out` — A dorian. C natural in the line. One phrase through E′.
 - `amazing-grace`, `skye-boat-song` — slow tunes in D, with a breath mark on the line.
 - `drops-of-brandy`, `winster-gallop` — slip jig and galop, slowed, with a pulse the player can hear.
@@ -98,7 +101,7 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 
 ### Bench
 
-- `listen fixtures`, `listen grade`, `listen gate`. `grade` prints `steady_low_d`, `early_break`, or `noise`. `fixtures` also writes the wave 2 traces.
+- `listen fixtures`, `listen grade`, `listen gate`, `listen grade-take`. `grade` prints `steady_low_d`, `early_break`, or `noise`. `grade-take` scores a wav named by a sidecar. Two synthetic sidecars live in `bench/takes/`. `fixtures` also writes the wave 2 traces. On those traces a short cut comes back `abstain` and settled; a cut that lasts does not.
 - `bench/score_traces.py` checks those traces.
 - Human protocol in `bench/HUMAN_GATE.md`.
 - `corpus/` for local labeled takes. The scorer does not read them.
@@ -109,20 +112,16 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 | --- | --- | --- |
 | Ear before playing | Hear plays a wav and then the staff may appear | Phrase wavs and cut, tap, and roll demos are not in `ref/` yet, so Hear is hidden on those nodes. The hole picture still shows. |
 | Ornaments on the air | Marks are drawn on the phrase and passed into the attempt when the node grades them. A cut on a later pack waits until the door’s cut has settled. | Phrase wavs and demos are still absent, so Hear is hidden. |
-| Ghost of the phrase | The concept allows one after feedback | The screen shows the remark only. |
-| Several whistles | The practice screen can switch the whistle in hand, and the name card can pick one already stored. | Reading and background are not edited after the card. |
+| Several whistles | The practice screen can switch the whistle in hand, and the name card can pick one already stored. Reading and background can be changed on the practice card. | A new whistle is still named on the object card. |
 | Early-break remark during the hold | The pill can show it as soon as a frame latches | The attempt still finishes on I’m done; the target does not move. |
 | `content_hash` | The loader checks sha256 of the manifest identity, the nodes, and the content files that are present | A mismatch refuses the pack. |
-| C natural picture | One fingering, `oxxooo`, taught in `c-natural` and written onto the profile when that hold settles. | A second fingering is not offered. |
-| Tests | Pitch, pack load and hash, a foreign key, an unknown note, rights, a page-only tune, the chain and the shelf, store round-trip, `pack_id` migration, C natural on one whistle, a corrupt file set aside, a heard settle kept, early-break target freeze, phrase order, breath gap, one-hole leak, ornament abstain, a mark on a phrase, a cracked octave E. Picture, path, and glossary tests in the webview. The gate binary asserts the synthetic protocol. | No automated test drives the Tauri window: object card, warm-up, or practice. |
+| Tests | Pitch, pack load and hash, a foreign key, an unknown note, rights, a page-only tune, the chain and the shelf, a bad teacher folder that does not drop the door, store round-trip, `pack_id` migration, C natural on one whistle, a corrupt file set aside, a heard settle kept, early-break target freeze, phrase order, breath gap, one-hole leak, ornament abstain, a short cut that settles, a phrase ghost, a warm hold, a mark on a phrase, a cracked octave E, and the two `bench/takes/` sidecars. Picture, path, glossary, and ghost tests in the webview. The gate binary asserts the synthetic protocol. | No automated test drives the Tauri window: object card, warm-up, or practice. |
 
 ## Ahead
 
-Reference recordings for the phrases, the songs, and the ornament demos are still not in `ref/`. Hear stays hidden until a wav is there. Words on a song appear after Hear, or after the player has played the line.
+Reference recordings for the phrases, the songs, and the ornament demos are still not in `ref/`. Hear stays hidden until a wav is there. Words on a song appear after Hear, or after the player has played the line. Slower is for phrases and held notes. An ornament demo, when the wav is there, plays at full speed.
 
-A second C-natural fingering is still waiting until `oxxooo` disagrees on this stick. F natural, half-holing as a menu, and the book’s later accidentals are not in the scale. Recalibrate is still a new settled hold on the first sound, not its own control. The ghost of a phrase is still only the remark.
-
-`teacher/` is a second root for a folder someone wrote. The folder in the tree has only a note. Nothing in it is uploaded.
+F natural, half-holing as a menu, and the book’s later accidentals are not in the scale. The desk screen is in the build. `teacher/` in the tree still has only a note. Nothing in that folder is uploaded.
 
 ## Node by node
 
@@ -150,4 +149,4 @@ A cut that lasts, a missing tap, a leak, an early break, or a phrase that never 
 | Air chunks | `ref/phrase_1.wav` … `ref/phrase_4.wav` |
 | Cut, tap, roll | `ref/cut_demo.wav`, `ref/tap_demo.wav`, `ref/roll_demo.wav` |
 
-Only the held notes are in the repository today.
+Only the held notes are in the repository today. Checklists for the missing phrase and song files are in each pack’s `ref/README.md`.

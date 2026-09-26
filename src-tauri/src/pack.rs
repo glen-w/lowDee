@@ -209,6 +209,9 @@ pub struct Pack {
     pub tune_abc: String,
     pub words: Words,
     pub playable: bool,
+    /// `pack` for the bundled chain, `teacher` for a folder on this machine.
+    #[serde(skip)]
+    pub origin: String,
 }
 
 pub fn resolve_pack_dir() -> PathBuf {
@@ -281,6 +284,7 @@ pub fn load_pack(root: &Path) -> Result<Pack, String> {
         tune_abc,
         words,
         playable: true,
+        origin: "pack".into(),
     })
 }
 
@@ -339,6 +343,7 @@ fn load_page_only(root: &Path, manifest: PackManifest) -> Result<Pack, String> {
         tune_abc: String::new(),
         words: Words::default(),
         playable: false,
+        origin: "pack".into(),
     })
 }
 
@@ -503,7 +508,11 @@ fn validate(
             ));
         }
         let want = fingering::holes_for(named);
-        let want_octave: u8 = if named.semitones_from_d4() >= 12 { 2 } else { 1 };
+        let want_octave: u8 = if named.semitones_from_d4() >= 12 {
+            2
+        } else {
+            1
+        };
         if chart.octave != want_octave {
             return Err(format!(
                 "{note} octave is {}, scale says {want_octave}",
@@ -522,10 +531,7 @@ fn validate(
         }
     }
     if !fits_low_d(&phrases.key) {
-        return Err(format!(
-            "{} does not fit a low D",
-            phrases.key
-        ));
+        return Err(format!("{} does not fit a low D", phrases.key));
     }
     Ok(())
 }
@@ -543,7 +549,9 @@ fn check_chart(note: &str, chart: &HoleChart) -> Result<(), String> {
         return Err(format!("{note} needs six holes"));
     }
     for hole in &chart.holes {
-        if hole != Hole::Closed.as_str() && hole != Hole::Open.as_str() && hole != Hole::Half.as_str()
+        if hole != Hole::Closed.as_str()
+            && hole != Hole::Open.as_str()
+            && hole != Hole::Half.as_str()
         {
             return Err(format!("{note} has hole state {hole}"));
         }
@@ -586,9 +594,33 @@ pub fn ref_exists(pack: &Pack, relative: &str) -> bool {
     ref_file(pack, relative).is_some()
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PackRefusal {
+    pub folder: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct Catalog {
     pub packs: Vec<Pack>,
+    pub refused: Vec<PackRefusal>,
+}
+
+/// One sentence for the desk. The loader's detail stays in the log of the reason string.
+pub fn refusal_sentence(err: &str) -> String {
+    if err.contains("page only and has a tune") || err.contains("page only and has audio") {
+        return "This folder is on the page only, and it has notes or audio.".into();
+    }
+    if err.contains("needs a named source") {
+        return "This folder has no named source.".into();
+    }
+    if err.contains("does not fit a low D") || err.contains("not on this whistle") {
+        return "This setting does not fit a low D.".into();
+    }
+    if err.contains("needs rights pd") {
+        return "This folder is not marked as public domain.".into();
+    }
+    "This folder could not be opened.".into()
 }
 
 #[derive(Debug, Clone)]
@@ -621,7 +653,10 @@ pub struct PackSummary {
 #[derive(Debug, Clone, Serialize)]
 pub struct CatalogView {
     pub shelf_open: bool,
+    pub desk_open: bool,
     pub packs: Vec<PackSummary>,
+    pub desk: Vec<PackSummary>,
+    pub refused: Vec<PackRefusal>,
 }
 
 pub fn catalog_roots() -> Vec<PathBuf> {
@@ -642,10 +677,12 @@ pub fn catalog_roots() -> Vec<PathBuf> {
 
 pub fn load_catalog(roots: &[PathBuf]) -> Result<Catalog, String> {
     let mut packs = Vec::new();
+    let mut refused = Vec::new();
     for root in roots {
         if !root.is_dir() {
             continue;
         }
+        let teacher = root.file_name().and_then(|n| n.to_str()) == Some("teacher");
         let mut dirs: Vec<PathBuf> = fs::read_dir(root)
             .map_err(|e| format!("{}: {e}", root.display()))?
             .filter_map(|e| e.ok())
@@ -654,13 +691,33 @@ pub fn load_catalog(roots: &[PathBuf]) -> Result<Catalog, String> {
             .collect();
         dirs.sort();
         for dir in dirs {
-            packs.push(load_pack(&dir)?);
+            match load_pack(&dir) {
+                Ok(mut pack) => {
+                    pack.origin = if teacher {
+                        "teacher".into()
+                    } else {
+                        "pack".into()
+                    };
+                    packs.push(pack);
+                }
+                Err(reason) if teacher => {
+                    let folder = dir
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| dir.display().to_string());
+                    refused.push(PackRefusal {
+                        folder,
+                        reason: refusal_sentence(&reason),
+                    });
+                }
+                Err(reason) => return Err(reason),
+            }
         }
     }
-    if packs.is_empty() {
+    if !packs.iter().any(|p| p.playable) {
         return Err("no packs".into());
     }
-    Ok(Catalog { packs })
+    Ok(Catalog { packs, refused })
 }
 
 fn settled(marks: &[ProgressMark], profile_id: &str, pack_id: &str, node_id: &str) -> bool {
@@ -682,7 +739,12 @@ fn pack_is_settled(pack: &Pack, marks: &[ProgressMark], profile_id: &str) -> boo
             .all(|id| settled(marks, profile_id, &pack.manifest.id, id))
 }
 
-fn dependency_settled(after: &str, packs: &[Pack], marks: &[ProgressMark], profile_id: &str) -> bool {
+fn dependency_settled(
+    after: &str,
+    packs: &[Pack],
+    marks: &[ProgressMark],
+    profile_id: &str,
+) -> bool {
     if after.is_empty() {
         return true;
     }
@@ -696,8 +758,36 @@ fn dependency_settled(after: &str, packs: &[Pack], marks: &[ProgressMark], profi
         .unwrap_or(false)
 }
 
+fn summary_for(pack: &Pack, open: bool, settled: bool) -> PackSummary {
+    PackSummary {
+        id: pack.manifest.id.clone(),
+        title: pack.manifest.title.clone(),
+        wave: pack.manifest.wave,
+        after: pack.manifest.after.clone(),
+        book_ref: pack.manifest.book_ref.clone(),
+        shelf: pack.manifest.shelf.clone(),
+        rights: pack.manifest.rights.clone(),
+        aka: pack.manifest.aka.clone(),
+        source: pack.manifest.source.clone(),
+        session: pack.manifest.session.clone(),
+        pulse: pack.manifest.pulse.clone(),
+        pulse_beats: pack.manifest.pulse_beats,
+        playable: pack.playable,
+        open,
+        settled,
+    }
+}
+
 pub fn catalog_view(catalog: &Catalog, marks: &[ProgressMark], profile_id: &str) -> CatalogView {
-    let mut playable: Vec<&Pack> = catalog.packs.iter().filter(|p| p.playable).collect();
+    let door_settled = catalog
+        .packs
+        .iter()
+        .any(|p| p.manifest.id == "may-morning-dew" && pack_is_settled(p, marks, profile_id));
+    let mut playable: Vec<&Pack> = catalog
+        .packs
+        .iter()
+        .filter(|p| p.playable && p.origin != "teacher")
+        .collect();
     let mut ordered: Vec<&Pack> = Vec::new();
     while !playable.is_empty() {
         let idx = playable.iter().position(|p| {
@@ -713,7 +803,11 @@ pub fn catalog_view(catalog: &Catalog, marks: &[ProgressMark], profile_id: &str)
         };
         ordered.push(playable.remove(idx));
     }
-    let mut page_only: Vec<&Pack> = catalog.packs.iter().filter(|p| !p.playable).collect();
+    let mut page_only: Vec<&Pack> = catalog
+        .packs
+        .iter()
+        .filter(|p| !p.playable && p.origin != "teacher")
+        .collect();
     page_only.sort_by(|a, b| a.manifest.title.cmp(&b.manifest.title));
 
     let shelf_open = catalog
@@ -725,27 +819,30 @@ pub fn catalog_view(catalog: &Catalog, marks: &[ProgressMark], profile_id: &str)
     for pack in ordered.into_iter().chain(page_only) {
         let open = pack.playable
             && dependency_settled(&pack.manifest.after, &catalog.packs, marks, profile_id);
-        summaries.push(PackSummary {
-            id: pack.manifest.id.clone(),
-            title: pack.manifest.title.clone(),
-            wave: pack.manifest.wave,
-            after: pack.manifest.after.clone(),
-            book_ref: pack.manifest.book_ref.clone(),
-            shelf: pack.manifest.shelf.clone(),
-            rights: pack.manifest.rights.clone(),
-            aka: pack.manifest.aka.clone(),
-            source: pack.manifest.source.clone(),
-            session: pack.manifest.session.clone(),
-            pulse: pack.manifest.pulse.clone(),
-            pulse_beats: pack.manifest.pulse_beats,
-            playable: pack.playable,
+        summaries.push(summary_for(
+            pack,
             open,
-            settled: pack_is_settled(pack, marks, profile_id),
-        });
+            pack_is_settled(pack, marks, profile_id),
+        ));
     }
+    let desk = catalog
+        .packs
+        .iter()
+        .filter(|p| p.origin == "teacher")
+        .map(|pack| {
+            summary_for(
+                pack,
+                door_settled && pack.playable,
+                pack_is_settled(pack, marks, profile_id),
+            )
+        })
+        .collect();
     CatalogView {
         shelf_open,
+        desk_open: door_settled,
         packs: summaries,
+        desk,
+        refused: catalog.refused.clone(),
     }
 }
 
@@ -789,10 +886,7 @@ mod tests {
         )
         .unwrap();
         let mismatch = load_pack(&dest).unwrap_err();
-        assert!(
-            mismatch.contains("content hash mismatch"),
-            "{mismatch}"
-        );
+        assert!(mismatch.contains("content hash mismatch"), "{mismatch}");
 
         manifest.node_ids.push("not_a_node".into());
         manifest.content_hash = content_hash(&manifest, &dest).unwrap();
@@ -857,8 +951,14 @@ mod tests {
             .find(|p| p.id == "book-staircase")
             .expect("book staircase");
         assert!(!stair.open);
-        assert!(view.packs.iter().any(|p| p.id == "lonesome-boatman" && !p.playable));
-        assert!(view.packs.iter().any(|p| p.rights == "page_only" && !p.open));
+        assert!(view
+            .packs
+            .iter()
+            .any(|p| p.id == "lonesome-boatman" && !p.playable));
+        assert!(view
+            .packs
+            .iter()
+            .any(|p| p.rights == "page_only" && !p.open));
     }
 
     fn stage_door(name: &str) -> PathBuf {
@@ -908,10 +1008,9 @@ mod tests {
             serde_json::to_string_pretty(&phrases).unwrap(),
         )
         .unwrap();
-        let mut fingering: Fingering = serde_json::from_str(
-            &fs::read_to_string(dir.join("fingering-low-d.json")).unwrap(),
-        )
-        .unwrap();
+        let mut fingering: Fingering =
+            serde_json::from_str(&fs::read_to_string(dir.join("fingering-low-d.json")).unwrap())
+                .unwrap();
         fingering.notes.insert(
             "Bb4".into(),
             HoleChart {
@@ -1029,5 +1128,42 @@ mod tests {
         assert!(cnat.open);
         let grace = open.packs.iter().find(|p| p.id == "amazing-grace").unwrap();
         assert!(!grace.open);
+        assert!(open.desk_open);
+        assert!(open.desk.is_empty());
+    }
+
+    #[test]
+    fn a_bad_teacher_folder_does_not_drop_the_door() {
+        assert_eq!(
+            refusal_sentence("tune does not fit a low D"),
+            "This setting does not fit a low D."
+        );
+        assert_eq!(
+            refusal_sentence("air needs a named source"),
+            "This folder has no named source."
+        );
+        assert_eq!(
+            refusal_sentence("x is page only and has a tune"),
+            "This folder is on the page only, and it has notes or audio."
+        );
+
+        let pack_root = resolve_pack_dir()
+            .parent()
+            .expect("pack root")
+            .to_path_buf();
+        let base = std::env::temp_dir().join(format!("low-d-desk-{}", std::process::id()));
+        let teacher = base.join("teacher");
+        let _ = fs::remove_dir_all(&base);
+        let bad = teacher.join("not-a-whistle");
+        fs::create_dir_all(&bad).unwrap();
+        fs::write(bad.join("manifest.json"), "{\"id\":\"nope\"}").unwrap();
+        let cat = load_catalog(&[pack_root, teacher]).expect("door still loads");
+        assert!(cat.packs.iter().any(|p| p.manifest.id == "may-morning-dew"));
+        assert!(cat.refused.iter().any(|r| {
+            r.folder == "not-a-whistle" && r.reason == "This folder could not be opened."
+        }));
+        let shut = catalog_view(&cat, &[], "player");
+        assert!(!shut.desk_open);
+        let _ = fs::remove_dir_all(&base);
     }
 }

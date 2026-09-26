@@ -4,7 +4,7 @@ Authority: Product decisions — audience, the path, listen states, what is stor
 # Low D — concept note
 
 **Date:** 2026-09-26  
-**Status:** Decided. The player is new to the whistle. Wave 1 is the door. Wave 2, the book’s path, is in the build: the same listen loop, a chain of local packs, and a shelf that stays shut until *Down by the Salley Gardens* is settled.  
+**Status:** Decided. The player is new to the whistle. Wave 1 is the door. Wave 2, the book’s path, is in the build: the same listen loop, a chain of local packs, and a shelf that stays shut until *Down by the Salley Gardens* is settled. Wave 3 is the ear and the desk: a phrase ghost after feedback, a recalibration between attempts, and one folder a teacher wrote, after *The May Morning Dew*. The app does not invent a whistle to copy.  
 **Sources:** `brainstorm/2026-09-26-low-d-whistle-p0-spine.md`, `brainstorm/low-d-whistle-concept-and-eng-spike-2026-09-26.md`, `brainstorm/low-d-whistle-learning-software.md`. The ex–high-D track in the spine is withdrawn. This note replaces it.  
 **Book on the table:** *The Low Whistle Book* — Stéfán Hannigan and David Ledsam (Soar Valley Music, ISBN 9780952530510). The book stays on the table. The app does not become the book.
 
@@ -328,7 +328,7 @@ may-morning-dew → book-staircase → salley-gardens → c-natural
   → as-i-roved-out → First Tones → Rolls → More ornament → Shelves
 ```
 
-ABC brought in from outside is still a desk after the first air. Wave 2 adds the rights check: playable on this low D, and not one of the `page_only` titles. A setting that does not fit a D whistle is refused with a reason. The Session is a way to find a later pack, by deep link, not an API inside the lesson. Someone who cannot yet play *The May Morning Dew* does not need a tune library.
+ABC brought in from outside is the desk, after *The May Morning Dew* is settled. It is one folder under `teacher/`, the same phrase loop, not a library and not the first screen. A folder that does not fit this whistle, has no named source, or is page-only and still contains a tune or a wav is skipped. The door still loads. The screen says why, in one sentence. Wave 2 adds the rights check: playable on this low D, and not one of the `page_only` titles. A setting that does not fit a D whistle is refused with a reason. The Session is a way to find a later pack, by deep link, not an API inside the lesson. Someone who cannot yet play *The May Morning Dew* does not need a tune library.
 
 ---
 

@@ -6,6 +6,7 @@ pub mod ornaments;
 pub mod pitch;
 pub mod rms;
 pub mod synth;
+pub mod take;
 pub mod types;
 
 pub use attempt::{AttemptConfig, AttemptEngine, Frame};

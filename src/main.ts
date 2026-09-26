@@ -28,6 +28,9 @@ import {
   type WarmBeat,
 } from "./warmup";
 import { glossaryCountLabel, glossaryListHtml, glossaryShellHtml } from "./glossary";
+import { ghostMarkup, type GhostTrace } from "./ghost";
+import { CNAT_ALT, withAltC } from "./cnat";
+import { deskHtml } from "./desk";
 import {
   PATH_NOTE,
   practiceNavHtml,
@@ -80,8 +83,12 @@ class App {
   beatElapsed = 0;
   warmTimer: number | null = null;
   warmView: "intro" | "run" | "done" | null = null;
-  page: "sitting" | "glossary" | "shelf" | "about" = "sitting";
-  catalog: CatalogView = { shelf_open: false, packs: [] };
+  page: "sitting" | "glossary" | "shelf" | "about" | "desk" = "sitting";
+  catalog: CatalogView = { shelf_open: false, desk_open: false, packs: [], desk: [], refused: [] };
+  ghost: GhostTrace | null = null;
+  warmWhistle = false;
+  cnatAlt = false;
+  recalibrating = false;
   hideWords = false;
   glossaryQuery = "";
   glossaryPausedWarm = false;
@@ -138,7 +145,7 @@ class App {
   }
 
   async openPack(id: string, renderAfter = true): Promise<void> {
-    await invoke("open_pack", { pack_id: id });
+    await invoke("open_pack", { packId: id });
     this.pack = await invoke<Pack>("get_pack");
     this.catalog = await invoke<CatalogView>("get_catalog");
     this.nodeIndex = this.resumeIndex();
@@ -150,6 +157,9 @@ class App {
     this.hideWords = false;
     this.listenState = "idle";
     this.remark = "";
+    this.ghost = null;
+    this.cnatAlt = false;
+    this.recalibrating = false;
     this.page = "sitting";
     if (renderAfter) this.render();
   }
@@ -188,6 +198,11 @@ class App {
     if (this.page === "shelf") {
       root.innerHTML = this.shelfHtml();
       this.bindShelf();
+      return;
+    }
+    if (this.page === "desk") {
+      root.innerHTML = deskHtml(this.catalog.desk, this.catalog.refused);
+      this.bindDesk();
       return;
     }
     if (!this.profile) {
@@ -526,6 +541,8 @@ class App {
           <p class="eyebrow">${escapeHtml(this.profile?.label ?? "this horn")} · ${escapeHtml(this.pack.manifest.title)}</p>
           <span class="row">
             ${this.hornSelectHtml()}
+            ${this.catalog.desk_open ? `<button type="button" class="ghost" id="desk-open">A tune on the table</button>` : ""}
+            ${this.onTheDesk() ? `<button type="button" class="ghost" id="path-back">The path</button>` : ""}
             ${this.catalog.shelf_open ? `<button type="button" class="ghost" id="shelf-open">Shelf</button>` : ""}
             <button type="button" class="ghost" id="about-open">This tube</button>
             <button type="button" class="ghost" id="glossary-open">Glossary</button>
@@ -555,6 +572,8 @@ class App {
           <div id="staff" class="staff" hidden></div>
           ${words && (this.heardPhrase || this.playedPhrase) && !this.hideWords ? `<p class="words">${escapeHtml(words)}</p>` : ""}
           <p class="remark" id="remark">${escapeHtml(this.remark)}</p>
+          <div id="ghost">${this.listenState === "feedback" ? ghostMarkup(this.ghost, this.ghostEvidence) : ""}</div>
+          ${this.cnatAlt ? `<p class="meta">This fingering did not speak. The bottom two holes close. Not a half-hole.</p>` : ""}
           <div class="hold-meter" ${this.showHold() ? "" : "hidden"}><i id="hold-bar" style="width:${Math.min(100, this.holdRatio * 100)}%"></i></div>
           <div class="row" style="margin-top:1.25rem">
             <button class="primary" id="play-btn">${this.primaryLabel()}</button>
@@ -565,6 +584,7 @@ class App {
             ${node?.hide_pictures ? `<button class="ghost" id="hide-btn">${this.hidePictures ? "Show pictures" : "Hide pictures"}</button>` : ""}
             ${words ? `<button class="ghost" id="words-btn">${this.hideWords ? "Show words" : "Hide words"}</button>` : ""}
           </div>
+          ${this.answerRow()}
           ${next && this.packSettled() ? `<div class="row"><button class="primary" id="next-pack">Next: ${escapeHtml(next.title)}</button></div>` : ""}
           <p class="meta" style="margin-top:1rem">Use headphones so the app doesn’t hear itself.</p>`
           }
@@ -572,10 +592,47 @@ class App {
       </div>`;
   }
 
+  ghostEvidence = "";
+
   targetMeta(): string {
     if (!this.isCalibrated()) return "Before calibration: is low D there";
     const t = this.frozenTarget ?? this.profile!.break_hz;
-    return `Target ${t.toFixed(1)} Hz · break ${this.profile!.break_hz.toFixed(1)} Hz`;
+    const line = `Target ${t.toFixed(1)} Hz · break ${this.profile!.break_hz.toFixed(1)} Hz`;
+    if (this.warmWhistle && this.listenState !== "sounding" && this.listenState !== "wait") {
+      return `${line}. This whistle has warmed`;
+    }
+    return line;
+  }
+
+  answerRow(): string {
+    if (!this.profile || this.listenState === "sounding" || this.listenState === "wait") return "";
+    const reads = this.profile.reads;
+    const background = this.profile.background;
+    const opt = (value: string, label: string, current: string) =>
+      `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
+    const recal =
+      this.isCalibrated()
+        ? `<button type="button" class="ghost" id="recal">Recalibrate</button>`
+        : "";
+    return `<div class="row answers">
+      <label>Reading <select id="reads" aria-label="Reading">
+        ${opt("no", "No", reads)}
+        ${opt("some", "A little", reads)}
+        ${opt("yes", "Yes", reads)}
+      </select></label>
+      <label>Background <select id="background" aria-label="Background">
+        ${opt("none", "New to music", background)}
+        ${opt("wind", "Wind", background)}
+        ${opt("other", "Other", background)}
+        ${opt("high_d", "High D", background)}
+      </select></label>
+      ${recal}
+    </div>`;
+  }
+
+  onTheDesk(): boolean {
+    const id = this.pack?.manifest.id;
+    return !!id && this.catalog.desk.some((p) => p.id === id);
   }
 
   letterChips(): string {
@@ -661,6 +718,7 @@ class App {
   }
 
   showHold(): boolean {
+    if (this.recalibrating) return true;
     const mode = this.mode();
     return mode === "first_sound" || mode === "breath_octave" || mode === "staircase";
   }
@@ -788,10 +846,11 @@ class App {
       return;
     }
     const sounding = this.listenState === "sounding" && this.liveFrame != null;
+    const fingering = this.cnatAlt ? withAltC(this.pack.fingering) : this.pack.fingering;
     renderPicture(
       el,
       pictureModel({
-        fingering: this.pack.fingering,
+        fingering,
         notes: this.pictureNotes(),
         currentIndex: this.pictureIndex(),
         leakHole: sounding ? this.liveFrame!.leak_hole : null,
@@ -858,6 +917,22 @@ class App {
       this.page = "shelf";
       this.render();
     });
+    document.querySelector("#desk-open")?.addEventListener("click", () => {
+      this.page = "desk";
+      this.render();
+    });
+    document.querySelector("#path-back")?.addEventListener("click", () => {
+      void this.openPack(this.resumePackId());
+    });
+    document.querySelector("#reads")?.addEventListener("change", (event) => {
+      void this.saveAnswers((event.target as HTMLSelectElement).value, this.profile?.background ?? "none");
+    });
+    document.querySelector("#background")?.addEventListener("change", (event) => {
+      void this.saveAnswers(this.profile?.reads ?? "no", (event.target as HTMLSelectElement).value);
+    });
+    document.querySelector("#recal")?.addEventListener("click", () => {
+      void this.onRecalibrate();
+    });
     document.querySelector("#another-horn")?.addEventListener("click", () => {
       this.profile = null;
       this.render();
@@ -906,6 +981,8 @@ class App {
     this.frozenTarget = null;
     this.holdRatio = 0;
     this.remark = "";
+    this.ghost = null;
+    this.recalibrating = false;
     this.listenState = "idle";
     try {
       await invoke("drop_attempt");
@@ -924,6 +1001,7 @@ class App {
     this.stairIndex = 0;
     this.phraseIndex = 0;
     this.wantOctave = false;
+    this.cnatAlt = false;
     this.heardPhrase = false;
     this.playedPhrase = false;
     if (!this.node()?.hide_pictures) this.hidePictures = false;
@@ -957,7 +1035,7 @@ class App {
     try {
       const ok = await invoke<boolean>("ref_available", { relative: rel });
       btn.hidden = !ok;
-      if (slow) slow.hidden = !ok;
+      if (slow) slow.hidden = !ok || this.isOrnament();
     } catch {
       btn.hidden = true;
       if (slow) slow.hidden = true;
@@ -1014,6 +1092,7 @@ class App {
     }
     const rel = this.refPath();
     if (!rel) return;
+    if (this.isOrnament()) rate = 1;
     const raw = await invoke<ArrayBuffer | number[]>("read_ref", { relative: rel });
     const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
     this.hearToken += 1;
@@ -1041,6 +1120,7 @@ class App {
 
   attemptArgs(): Record<string, unknown> {
     const node_id = this.nodeId;
+    if (this.recalibrating) return { node_id, mode: "first_sound", recalibrate: true };
     const mode = this.mode();
     if (mode === "first_sound") return { node_id, mode: "first_sound" };
     if (mode === "staircase") return { node_id, mode: "single_note", note: this.currentNote() };
@@ -1090,7 +1170,7 @@ class App {
   }
 
   async settlePage(): Promise<void> {
-    await invoke("step_past", { node_id: this.nodeId });
+    await invoke("step_past", { nodeId: this.nodeId });
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     this.remark = "";
@@ -1119,6 +1199,7 @@ class App {
     }
     if (this.listenState === "idle" || this.listenState === "feedback") {
       this.remark = "";
+      this.ghost = null;
       this.holdRatio = 0;
       this.listenState = "wait";
       const args = this.attemptArgs();
@@ -1128,6 +1209,7 @@ class App {
         { args },
       );
       if (!res.mic) {
+        this.recalibrating = false;
         this.listenState = "idle";
         this.liveFrame = null;
         this.remark = remarkFor(this.pack.remarks, "couldnt_hear", this.profile);
@@ -1201,13 +1283,25 @@ class App {
     this.stopHear();
     this.stopPoll();
     const markSettled = this.shouldMarkSettled();
+    const wasRecal = this.recalibrating;
     const result = await invoke<{
       evidence: Evidence;
       settled: boolean;
       break_hz: number | null;
       target_hz: number | null;
       remark_note: string | null;
-    }>("finish_attempt", { node_id: this.nodeId, mark_settled: markSettled });
+      warm: boolean;
+      cnat_disagree: boolean;
+      ghost: GhostTrace | null;
+    }>("finish_attempt", {
+      nodeId: this.nodeId,
+      markSettled: wasRecal ? false : markSettled,
+      recalibrate: wasRecal,
+      cnatFingering:
+        this.cnatAlt && this.pack.manifest.id === "c-natural" && this.nodeId === "cnat_hold"
+          ? CNAT_ALT
+          : undefined,
+    });
 
     // Target must not have drifted
     if (
@@ -1224,6 +1318,17 @@ class App {
       this.profile,
       result.remark_note,
     );
+    this.ghost = result.ghost;
+    this.ghostEvidence = result.evidence;
+    this.warmWhistle = wasRecal && result.settled ? false : result.warm;
+    if (
+      result.cnat_disagree &&
+      this.pack.manifest.id === "c-natural" &&
+      this.nodeId === "cnat_hold"
+    ) {
+      this.cnatAlt = true;
+    }
+    this.recalibrating = false;
     this.listenState = "feedback";
     this.playedPhrase = true;
     this.store = await invoke<AppStore>("get_store");
@@ -1235,10 +1340,33 @@ class App {
       if (refreshed) this.profile = refreshed;
     }
 
-    if (result.settled) {
+    if (result.settled && !wasRecal) {
       await this.advanceAfterSettle();
     }
     this.render();
+  }
+
+  async saveAnswers(reads: string, background: string): Promise<void> {
+    if (!this.profile) return;
+    const profile = await invoke<WhistleProfile>("update_profile_answers", {
+      profileId: this.profile.profile_id,
+      reads,
+      background,
+    });
+    this.profile = profile;
+    const stored = this.store.profiles.find((p) => p.profile_id === profile.profile_id);
+    if (stored) {
+      stored.reads = profile.reads;
+      stored.background = profile.background;
+    }
+    this.render();
+  }
+
+  async onRecalibrate(): Promise<void> {
+    if (this.listenState === "sounding" || this.listenState === "wait") return;
+    this.recalibrating = true;
+    this.listenState = "idle";
+    await this.onPrimary();
   }
 
   async advanceAfterSettle(): Promise<void> {
@@ -1274,7 +1402,7 @@ class App {
     this.hearToken += 1;
     this.stopHear();
     this.stopPoll();
-    await invoke("step_past", { node_id: this.nodeId });
+    await invoke("step_past", { nodeId: this.nodeId });
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     this.remark = "";
@@ -1293,7 +1421,7 @@ class App {
 
   async useHorn(profileId: string): Promise<void> {
     if (!profileId) return;
-    await invoke("select_profile", { profile_id: profileId });
+    await invoke("select_profile", { profileId });
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     this.profile = this.store.profiles.find((p) => p.profile_id === profileId) ?? null;
@@ -1347,8 +1475,9 @@ class App {
           <p class="eyebrow">Shelf</p>
           <button type="button" class="ghost" id="shelf-back">Back</button>
         </div>
-        <h1>After the second air</h1>
+          <h1>After the second air</h1>
         <p class="lede">An index of packs. The door is still The May Morning Dew.</p>
+        ${this.catalog.desk_open ? `<p><button type="button" class="ghost" id="desk-open">A tune on the table</button></p>` : ""}
         <div class="shelf-list">${blocks}</div>
       </div>`;
   }
@@ -1356,6 +1485,10 @@ class App {
   bindShelf(): void {
     document.querySelector("#shelf-back")?.addEventListener("click", () => {
       this.page = "sitting";
+      this.render();
+    });
+    document.querySelector("#desk-open")?.addEventListener("click", () => {
+      this.page = "desk";
       this.render();
     });
     document.querySelectorAll<HTMLButtonElement>("[data-open-pack]").forEach((btn) => {
@@ -1368,6 +1501,19 @@ class App {
       btn.addEventListener("click", () => {
         const url = btn.dataset.session;
         if (url) void openUrl(url);
+      });
+    });
+  }
+
+  bindDesk(): void {
+    document.querySelector("#desk-back")?.addEventListener("click", () => {
+      this.page = "sitting";
+      this.render();
+    });
+    document.querySelectorAll<HTMLButtonElement>("[data-open-pack]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.openPack;
+        if (id) void this.openPack(id);
       });
     });
   }

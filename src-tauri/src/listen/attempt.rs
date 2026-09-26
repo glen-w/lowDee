@@ -68,6 +68,29 @@ pub struct AttemptConfig {
     /// Frozen for this attempt — never updated mid-phrase.
     pub break_hz: Option<f32>,
     pub rms_floor: Option<f32>,
+    /// A new low-D hold may sit sharp of the stored break. The target stays frozen.
+    pub recalibrate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GhostPoint {
+    pub t_ms: f32,
+    pub cents: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GhostSpan {
+    pub t0_ms: f32,
+    pub t1_ms: f32,
+    pub note: String,
+    /// Expected interval, in cents, from the frozen target.
+    pub cents: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GhostTrace {
+    pub points: Vec<GhostPoint>,
+    pub spans: Vec<GhostSpan>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +102,12 @@ pub struct AttemptResult {
     pub frames: Vec<Frame>,
     pub target_hz: Option<f32>,
     pub remark_note: Option<String>,
+    /// A later hold sat outside the post-calibration window. Not a tuner.
+    pub warm: bool,
+    /// C natural was asked, the pitch was not that interval, and no single hole explains it.
+    pub cnat_disagree: bool,
+    /// Downsampled contour. Absent when the attempt could not be heard, or the ornament abstains.
+    pub ghost: Option<GhostTrace>,
 }
 
 pub struct AttemptEngine {
@@ -232,10 +261,21 @@ impl AttemptEngine {
             }
         }
 
-        let near_target = match (est.hz, expected) {
+        let mut near_target = match (est.hz, expected) {
             (Some(hz), Some(exp)) => 1200.0 * (hz / exp).log2().abs() <= tol,
             _ => false,
         };
+        if self.cfg.recalibrate
+            && matches!(self.cfg.mode, AttemptMode::FirstSound)
+            && sounding
+            && !early_break
+        {
+            if let Some(hz) = est.hz {
+                if (250.0..=1600.0).contains(&hz) {
+                    near_target = true;
+                }
+            }
+        }
 
         // Onset counting for on_the_breath
         if sounding && self.was_quiet {
@@ -270,13 +310,11 @@ impl AttemptEngine {
     fn current_expected_note(&self) -> Option<NoteName> {
         match &self.cfg.mode {
             AttemptMode::FirstSound => Some(NoteName::D4),
-            AttemptMode::BreathOctave { want_octave } => {
-                Some(if *want_octave {
-                    NoteName::D5
-                } else {
-                    NoteName::D4
-                })
-            }
+            AttemptMode::BreathOctave { want_octave } => Some(if *want_octave {
+                NoteName::D5
+            } else {
+                NoteName::D4
+            }),
             AttemptMode::SingleNote { note } | AttemptMode::Ornament { note, .. } => Some(*note),
             AttemptMode::Phrase { notes, .. } | AttemptMode::OnTheBreath { notes } => {
                 notes.get(self.phrase_idx).copied()
@@ -354,8 +392,7 @@ impl AttemptEngine {
         let next_i = self.notes_confirmed;
         if on(notes[next_i]) {
             if self.slice_starts.len() == next_i {
-                self.slice_starts
-                    .push(self.contour.len().saturating_sub(1));
+                self.slice_starts.push(self.contour.len().saturating_sub(1));
             }
             self.phrase_dwell += hop;
             self.phrase_idx = next_i;
@@ -436,14 +473,123 @@ impl AttemptEngine {
             _ => None,
         };
 
+        let settled = settled && !matches!(evidence, Evidence::EarlyBreak | Evidence::CouldntHear);
         AttemptResult {
             evidence,
-            settled: settled && !matches!(evidence, Evidence::EarlyBreak | Evidence::CouldntHear),
+            settled,
             break_hz,
             rms_floor,
             frames: self.frames.clone(),
             target_hz: self.frozen_target,
             remark_note,
+            warm: self.warm_hold(),
+            cnat_disagree: self.cnat_disagree(),
+            ghost: self.ghost_trace(evidence),
+        }
+    }
+
+    /// Mean pitch of a low hold, against the stored break. An early octave is not warmth.
+    fn warm_hold(&self) -> bool {
+        let Some(break_hz) = self.cfg.break_hz.filter(|hz| *hz > 0.0) else {
+            return false;
+        };
+        let low_hold = matches!(
+            self.cfg.mode,
+            AttemptMode::FirstSound | AttemptMode::BreathOctave { want_octave: false }
+        );
+        if !low_hold || self.early_break_latched {
+            return false;
+        }
+        let voiced: Vec<f32> = self.frames.iter().filter_map(|f| f.hz).collect();
+        if voiced.len() < 8 {
+            return false;
+        }
+        let mean = voiced.iter().sum::<f32>() / voiced.len() as f32;
+        crate::listen::types::cents_between(mean, break_hz).abs() > CENTS_TOLERANCE_POST_CAL
+    }
+
+    fn cnat_disagree(&self) -> bool {
+        let AttemptMode::SingleNote { note } = &self.cfg.mode else {
+            return false;
+        };
+        if *note != NoteName::C5 {
+            return false;
+        }
+        let voiced: Vec<&Frame> = self.frames.iter().filter(|f| f.hz.is_some()).collect();
+        if voiced.len() < 8 {
+            return false;
+        }
+        if voiced.iter().any(|f| f.leak_hole.is_some()) {
+            return false;
+        }
+        let near = voiced.iter().filter(|f| f.near_target).count();
+        near * 2 < voiced.len()
+    }
+
+    fn ghost_trace(&self, evidence: Evidence) -> Option<GhostTrace> {
+        if matches!(evidence, Evidence::CouldntHear | Evidence::Abstain) {
+            return None;
+        }
+        let target = self.frozen_target.filter(|hz| *hz > 0.0)?;
+        if self.frames.len() < 2 {
+            return None;
+        }
+        const CAP: usize = 64;
+        let step = (self.frames.len() / CAP).max(1);
+        let mut points = Vec::new();
+        for (i, frame) in self.frames.iter().enumerate() {
+            let keep = i % step == 0 || i + 1 == self.frames.len();
+            if !keep || points.len() >= CAP {
+                continue;
+            }
+            let Some(hz) = frame.hz else {
+                continue;
+            };
+            let cents = crate::listen::types::cents_between(hz, target);
+            if !cents.is_finite() {
+                continue;
+            }
+            points.push(GhostPoint {
+                t_ms: frame.t_ms,
+                cents: cents.clamp(-1200.0, 1200.0),
+            });
+        }
+        if points.len() < 2 {
+            return None;
+        }
+        let base = self.cfg.break_hz.unwrap_or(DEFAULT_LOW_D_HZ);
+        let mut spans = Vec::new();
+        let mut open: Option<(String, f32)> = None;
+        for frame in &self.frames {
+            let Some(note) = frame.expected_note.clone() else {
+                continue;
+            };
+            match &open {
+                Some((name, _)) if name == &note => {}
+                Some((name, t0)) => {
+                    spans.push(self.span(name, *t0, frame.t_ms, base, target));
+                    open = Some((note, frame.t_ms));
+                }
+                None => open = Some((note, frame.t_ms)),
+            }
+        }
+        if let Some((name, t0)) = open {
+            let end = self.frames.last().map(|f| f.t_ms).unwrap_or(t0);
+            spans.push(self.span(&name, t0, end, base, target));
+        }
+        Some(GhostTrace { points, spans })
+    }
+
+    fn span(&self, note: &str, t0_ms: f32, t1_ms: f32, base: f32, target: f32) -> GhostSpan {
+        let cents = NoteName::from_str(note)
+            .map(|named| crate::listen::types::cents_between(target_hz(base, named), target))
+            .filter(|c| c.is_finite())
+            .unwrap_or(0.0);
+        GhostSpan {
+            t0_ms,
+            t1_ms,
+            note: note.to_string(),
+            cents,
         }
     }
 
@@ -497,7 +643,8 @@ impl AttemptEngine {
                 Evidence::CouldntHear
             }
             AttemptMode::SingleNote { note } => {
-                if note.semitones_from_d4() >= 12 && self.crack_low > (self.frames.len() / 2) as u32 {
+                if note.semitones_from_d4() >= 12 && self.crack_low > (self.frames.len() / 2) as u32
+                {
                     return Evidence::Cracked;
                 }
                 if self.hold_secs >= 0.8 {
@@ -525,8 +672,8 @@ impl AttemptEngine {
                 breaths,
                 marks,
             } => {
-                let bad_breath = !breaths.is_empty()
-                    && self.breaths_heard.iter().any(|i| !breaths.contains(i));
+                let bad_breath =
+                    !breaths.is_empty() && self.breaths_heard.iter().any(|i| !breaths.contains(i));
                 if bad_breath && self.notes_confirmed > 0 {
                     return Evidence::BreathChops;
                 }
@@ -624,6 +771,7 @@ pub fn first_sound_engine(sample_rate: u32, profile: Option<&WhistleProfile>) ->
         mode: AttemptMode::FirstSound,
         break_hz: profile.and_then(|p| (p.break_hz > 0.0).then_some(p.break_hz)),
         rms_floor: profile.and_then(|p| (p.rms_floor > 0.0).then_some(p.rms_floor)),
+        recalibrate: false,
     })
 }
 
@@ -650,6 +798,7 @@ mod tests {
                 mode: AttemptMode::BreathOctave { want_octave: false },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_early_break(44100, hz),
         );
@@ -668,6 +817,7 @@ mod tests {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
             &synth::sine(hz, 44100, 2.0, 0.35),
         );
@@ -679,16 +829,13 @@ mod tests {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
             &synth::fixture_steady_low_d(44100, hz),
         );
         assert_eq!(held.evidence, Evidence::LowDHeld);
         assert!(held.settled);
-        let ratio = held
-            .frames
-            .last()
-            .map(|f| f.hold_ratio)
-            .unwrap_or(0.0);
+        let ratio = held.frames.last().map(|f| f.hold_ratio).unwrap_or(0.0);
         assert!(ratio >= 1.0, "hold ratio {ratio}");
     }
 
@@ -707,6 +854,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_joined_phrase(44100, hz),
         );
@@ -730,6 +878,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &scramble,
         );
@@ -745,15 +894,11 @@ mod tests {
                 sample_rate: 44100,
                 hop_ms: 30.0,
                 mode: AttemptMode::OnTheBreath {
-                    notes: vec![
-                        NoteName::D4,
-                        NoteName::E4,
-                        NoteName::Fs4,
-                        NoteName::G4,
-                    ],
+                    notes: vec![NoteName::D4, NoteName::E4, NoteName::Fs4, NoteName::G4],
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_joined_phrase(44100, hz),
         );
@@ -772,6 +917,7 @@ mod tests {
                 mode: AttemptMode::SingleNote { note: NoteName::E4 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::sine(hz, 44100, 1.0, 0.35),
         );
@@ -779,7 +925,10 @@ mod tests {
             result.frames.iter().any(|f| f.leak_hole == Some(5)),
             "expected the bottom hole"
         );
-        assert!(result.frames.iter().all(|f| f.leak_hole != Some(0) || f.hz.is_none()));
+        assert!(result
+            .frames
+            .iter()
+            .all(|f| f.leak_hole != Some(0) || f.hz.is_none()));
     }
 
     #[test]
@@ -793,10 +942,56 @@ mod tests {
                 mode: AttemptMode::SingleNote { note: NoteName::D4 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::sine(g, 44100, 0.8, 0.35),
         );
         assert!(result.frames.iter().all(|f| f.leak_hole.is_none()));
+    }
+
+    #[test]
+    fn a_short_cut_abstains_and_settles() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let body = target_hz(hz, NoteName::A4);
+        let result = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 10.0,
+                mode: AttemptMode::Ornament {
+                    note: NoteName::A4,
+                    gesture: GestureKind::Cut,
+                },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::fixture_cut(44100, body),
+        );
+        let mut off = 0.0f32;
+        let mut run = 0.0f32;
+        let mut prev: Option<f32> = None;
+        for f in &result.frames {
+            let high =
+                f.hz.map(|h| 1200.0 * (h / body).log2() > 80.0)
+                    .unwrap_or(false);
+            if high {
+                if let Some(p) = prev {
+                    run += f.t_ms - p;
+                }
+                off = off.max(run);
+            } else {
+                run = 0.0;
+            }
+            prev = Some(f.t_ms);
+        }
+        assert_eq!(
+            result.evidence,
+            Evidence::Abstain,
+            "off_ms={off:.0} settled={} frames={}",
+            result.settled,
+            result.frames.len()
+        );
+        assert!(result.settled);
     }
 
     #[test]
@@ -813,6 +1008,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::sine(body, 44100, 1.0, 0.35),
         );
@@ -834,6 +1030,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_two_notes_gap(44100, hz, 0.4),
         );
@@ -851,6 +1048,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_two_notes_gap(44100, hz, 0.4),
         );
@@ -868,6 +1066,7 @@ mod tests {
                 mode: AttemptMode::SingleNote { note: NoteName::C5 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_leaked_c(44100, hz),
         );
@@ -882,6 +1081,7 @@ mod tests {
                 mode: AttemptMode::SingleNote { note: NoteName::E5 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_octave_e_cracks(44100, hz),
         );
@@ -905,6 +1105,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_a_dorian(44100, hz),
         );
@@ -930,6 +1131,7 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_cut_too_long(44100, body),
         );
@@ -951,10 +1153,115 @@ mod tests {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
             &synth::fixture_roll_split(44100, body),
         );
         assert_eq!(result.evidence, Evidence::BecameNotes, "{result:?}");
         assert!(!result.settled);
+    }
+
+    #[test]
+    fn a_phrase_keeps_a_capped_ghost_and_silence_does_not() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let phrase = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::OnTheBreath {
+                    notes: vec![NoteName::D4, NoteName::E4, NoteName::Fs4, NoteName::G4],
+                },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::fixture_joined_phrase(44100, hz),
+        );
+        let ghost = phrase.ghost.expect("phrase ghost");
+        assert!(ghost.points.len() >= 2 && ghost.points.len() <= 64);
+        assert!(!ghost.spans.is_empty());
+
+        let noise = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::FirstSound,
+                break_hz: None,
+                rms_floor: None,
+                recalibrate: false,
+            },
+            &synth::fixture_noise(44100),
+        );
+        assert!(noise.ghost.is_none());
+        assert!(!noise.warm);
+    }
+
+    #[test]
+    fn a_sharp_hold_is_warmth_and_a_one_hole_c_is_not_a_new_fingering() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let sharp = hz * 2f32.powf(100.0 / 1200.0);
+        let warm = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::FirstSound,
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::sine(sharp, 44100, 2.0, 0.35),
+        );
+        assert!(warm.warm, "{warm:?}");
+        assert!(warm.ghost.is_some());
+
+        let leaked = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::SingleNote { note: NoteName::C5 },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::fixture_leaked_c(44100, hz),
+        );
+        assert!(!leaked.cnat_disagree, "{leaked:?}");
+
+        let other = target_hz(hz, NoteName::B4);
+        let disagree = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::SingleNote { note: NoteName::C5 },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &synth::sine(other, 44100, 1.2, 0.35),
+        );
+        assert!(disagree.cnat_disagree, "{disagree:?}");
+        assert!(!disagree.settled);
+    }
+
+    #[test]
+    fn recalibrate_accepts_a_warm_hold_and_leaves_the_target_frozen() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let sharp = hz * 2f32.powf(80.0 / 1200.0);
+        let result = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::FirstSound,
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: true,
+            },
+            &synth::sine(sharp, 44100, 10.5, 0.35),
+        );
+        assert_eq!(result.evidence, Evidence::LowDHeld, "{result:?}");
+        assert!(result.settled);
+        let written = result.break_hz.expect("new break");
+        assert!((written - sharp).abs() < 5.0, "{written} vs {sharp}");
+        assert!((result.target_hz.unwrap() - hz).abs() < 1.0);
     }
 }

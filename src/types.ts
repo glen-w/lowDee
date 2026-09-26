@@ -81,7 +81,10 @@ export interface PackSummary {
 
 export interface CatalogView {
   shelf_open: boolean;
+  desk_open: boolean;
   packs: PackSummary[];
+  desk: PackSummary[];
+  refused: Array<{ folder: string; reason: string }>;
 }
 
 export interface Pack {

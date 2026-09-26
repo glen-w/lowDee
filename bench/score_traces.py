@@ -19,8 +19,7 @@ EXPECTED = {
     "tongued": {"evidence": "restarted_notes", "settled": False},
     "joined": {"evidence": "phrase_ok", "settled": True},
     "cut_too_long": {"evidence": "cut_too_long", "settled": False},
-    # cut_ok may abstain (silence is success)
-    "cut_ok": {"evidence_in": ["abstain", "cut_too_long"], "settled_any": True},
+    "cut_ok": {"evidence": "abstain", "settled": True},
     "leaked_c": {"evidence": "sealed", "settled": False},
     "octave_e_crack": {"evidence": "cracked", "settled": False},
     "a_dorian": {"evidence": "phrase_ok", "settled": True},
@@ -50,14 +49,8 @@ def main() -> int:
         ok = True
         if "evidence" in exp and row["evidence"] != exp["evidence"]:
             ok = False
-        if "evidence_in" in exp and row["evidence"] not in exp["evidence_in"]:
-            ok = False
         if "settled" in exp and row["settled"] != exp["settled"]:
-            # cut_ok: abstain with settled true is ideal; allow abstain unsettled as soft
-            if name == "cut_ok" and row["evidence"] == "abstain":
-                ok = True
-            else:
-                ok = False
+            ok = False
         status = "PASS" if ok else "FAIL"
         if not ok:
             failed += 1

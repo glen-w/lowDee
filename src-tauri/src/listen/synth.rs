@@ -138,9 +138,38 @@ pub fn fixture_roll_split(sample_rate: u32, body_hz: f32) -> Vec<f32> {
 pub fn fixture_slide_missed(sample_rate: u32, body_hz: f32) -> Vec<f32> {
     let below = body_hz * 2f32.powf(-2.0 / 12.0);
     let mut v = sine(below, sample_rate, 0.35, 0.35);
-    v.extend(sine(body_hz * 2f32.powf(-1.0 / 12.0), sample_rate, 0.15, 0.35));
+    v.extend(sine(
+        body_hz * 2f32.powf(-1.0 / 12.0),
+        sample_rate,
+        0.15,
+        0.35,
+    ));
     v.extend(sine(below, sample_rate, 0.35, 0.35));
     v
+}
+
+pub fn read_wav(path: &std::path::Path) -> Result<(u32, Vec<f32>), String> {
+    let mut reader = hound::WavReader::open(path).map_err(|e| e.to_string())?;
+    let spec = reader.spec();
+    let channels = spec.channels.max(1) as usize;
+    let interleaved: Vec<f32> = match spec.sample_format {
+        hound::SampleFormat::Float => reader.samples::<f32>().map(|s| s.unwrap_or(0.0)).collect(),
+        hound::SampleFormat::Int => {
+            let max = (1i32 << (spec.bits_per_sample.saturating_sub(1))) as f32;
+            reader
+                .samples::<i32>()
+                .map(|s| s.unwrap_or(0) as f32 / max)
+                .collect()
+        }
+    };
+    if channels == 1 {
+        return Ok((spec.sample_rate, interleaved));
+    }
+    let mono = interleaved
+        .chunks(channels)
+        .map(|chunk| chunk.iter().sum::<f32>() / channels as f32)
+        .collect();
+    Ok((spec.sample_rate, mono))
 }
 
 pub fn write_wav(path: &std::path::Path, sample_rate: u32, samples: &[f32]) -> Result<(), String> {

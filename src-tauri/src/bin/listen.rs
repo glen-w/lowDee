@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use low_d_lib::listen::attempt::{AttemptConfig, AttemptEngine, AttemptMode};
 use low_d_lib::listen::ornaments::GestureKind;
 use low_d_lib::listen::synth;
+use low_d_lib::listen::take;
 use low_d_lib::listen::types::{NoteName, DEFAULT_LOW_D_HZ};
 use low_d_lib::listen::Evidence;
 use serde_json::json;
@@ -21,13 +22,41 @@ fn main() {
             grade_named(name);
         }
         "gate" => run_gate_protocol(),
+        "grade-take" => {
+            let path = args.get(2).map(|s| s.as_str()).unwrap_or("");
+            if path.is_empty() {
+                eprintln!("listen grade-take <sidecar.json>");
+                std::process::exit(2);
+            }
+            match take::grade_spec(std::path::Path::new(path)) {
+                Ok(grade) => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&json!({
+                            "evidence": grade.evidence,
+                            "settled": grade.settled,
+                            "pass": grade.pass,
+                        }))
+                        .unwrap()
+                    );
+                    if !grade.pass {
+                        std::process::exit(1);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("{err}");
+                    std::process::exit(2);
+                }
+            }
+        }
         "help" | _ => {
-            eprintln!("listen fixtures | listen grade <name> | listen gate");
+            eprintln!("listen fixtures | listen grade <name> | listen gate | listen grade-take <sidecar.json>");
             eprintln!("fixtures: write wav + traces under bench/fixtures and bench/out");
             eprintln!("grade: run one named fixture and print JSON");
             eprintln!(
                 "gate: beginner protocol on synthetic audio (settle, early break, retry, phrase)"
             );
+            eprintln!("grade-take: score a wav named by a sidecar (corpus/ or bench/takes/)");
         }
     }
 }
@@ -65,6 +94,7 @@ fn run_fixtures() {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
         ),
         (
@@ -76,6 +106,7 @@ fn run_fixtures() {
                 mode: AttemptMode::BreathOctave { want_octave: false },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -87,6 +118,7 @@ fn run_fixtures() {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
         ),
         (
@@ -98,6 +130,7 @@ fn run_fixtures() {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
         ),
         (
@@ -109,6 +142,7 @@ fn run_fixtures() {
                 mode: AttemptMode::BreathOctave { want_octave: true },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -123,6 +157,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -137,6 +172,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -150,6 +186,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -163,6 +200,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -174,6 +212,7 @@ fn run_fixtures() {
                 mode: AttemptMode::SingleNote { note: NoteName::C5 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -185,6 +224,7 @@ fn run_fixtures() {
                 mode: AttemptMode::SingleNote { note: NoteName::E5 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -200,6 +240,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -215,6 +256,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -230,6 +272,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         (
@@ -244,6 +287,7 @@ fn run_fixtures() {
                 },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
     ];
@@ -307,6 +351,7 @@ fn grade_named(name: &str) {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
         ),
         "early_break" => (
@@ -317,6 +362,7 @@ fn grade_named(name: &str) {
                 mode: AttemptMode::BreathOctave { want_octave: false },
                 break_hz: Some(hz),
                 rms_floor: Some(0.05),
+                recalibrate: false,
             },
         ),
         "noise" => (
@@ -327,6 +373,7 @@ fn grade_named(name: &str) {
                 mode: AttemptMode::FirstSound,
                 break_hz: None,
                 rms_floor: None,
+                recalibrate: false,
             },
         ),
         other => {
@@ -361,6 +408,7 @@ fn run_gate_protocol() {
             mode: AttemptMode::FirstSound,
             break_hz: None,
             rms_floor: None,
+            recalibrate: false,
         },
         &synth::fixture_steady_low_d(sr, hz),
     );
@@ -382,6 +430,7 @@ fn run_gate_protocol() {
             mode: AttemptMode::BreathOctave { want_octave: false },
             break_hz: Some(break_hz),
             rms_floor: Some(rms_floor),
+            recalibrate: false,
         },
         &synth::fixture_early_break(sr, break_hz),
     );
@@ -404,6 +453,7 @@ fn run_gate_protocol() {
             mode: AttemptMode::BreathOctave { want_octave: false },
             break_hz: Some(break_hz),
             rms_floor: Some(rms_floor),
+            recalibrate: false,
         },
         &synth::fixture_retry_settle(sr, break_hz),
     );
@@ -427,6 +477,7 @@ fn run_gate_protocol() {
             },
             break_hz: Some(break_hz),
             rms_floor: Some(rms_floor),
+            recalibrate: false,
         },
         &synth::fixture_joined_phrase(sr, break_hz),
     );
@@ -453,6 +504,7 @@ fn run_gate_protocol() {
             mode: AttemptMode::FirstSound,
             break_hz: None,
             rms_floor: None,
+            recalibrate: false,
         },
         &synth::fixture_noise(sr),
     );

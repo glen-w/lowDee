@@ -38,6 +38,8 @@ pub struct StartAttemptArgs {
     pub gesture: Option<String>,
     pub breaths: Option<Vec<usize>>,
     pub marks: Option<Vec<MarkArg>>,
+    /// A between-attempt low-D hold. Does not mark the node on screen.
+    pub recalibrate: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -117,7 +119,10 @@ pub fn get_pack(state: State<'_, AppState>) -> Result<serde_json::Value, String>
 }
 
 #[tauri::command]
-pub fn get_catalog(app: AppHandle, state: State<'_, AppState>) -> Result<pack::CatalogView, String> {
+pub fn get_catalog(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<pack::CatalogView, String> {
     let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
     let store = store::load(&data_dir(&app))?;
     let profile_id = store.active_profile_id.clone().unwrap_or_default();
@@ -135,7 +140,11 @@ pub fn get_catalog(app: AppHandle, state: State<'_, AppState>) -> Result<pack::C
 }
 
 #[tauri::command]
-pub fn open_pack(state: State<'_, AppState>, pack_id: String) -> Result<(), String> {
+pub fn open_pack(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    pack_id: String,
+) -> Result<(), String> {
     let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
     let pack = catalog
         .packs
@@ -143,6 +152,24 @@ pub fn open_pack(state: State<'_, AppState>, pack_id: String) -> Result<(), Stri
         .find(|p| p.manifest.id == pack_id && p.playable)
         .cloned()
         .ok_or_else(|| "pack not found".to_string())?;
+    if pack.origin == "teacher" {
+        let store = store::load(&data_dir(&app))?;
+        let profile_id = store.active_profile_id.clone().unwrap_or_default();
+        let marks: Vec<ProgressMark> = store
+            .progress
+            .iter()
+            .map(|p| ProgressMark {
+                profile_id: p.profile_id.clone(),
+                pack_id: p.pack_id.clone(),
+                node_id: p.node_id.clone(),
+                state_reached: p.state_reached.clone(),
+            })
+            .collect();
+        let view = pack::catalog_view(&catalog, &marks, &profile_id);
+        if !view.desk.iter().any(|p| p.id == pack_id && p.open) {
+            return Err("The desk opens after The May Morning Dew.".into());
+        }
+    }
     drop(catalog);
     *state.pack.lock().map_err(|e| e.to_string())? = pack;
     Ok(())
@@ -375,6 +402,7 @@ pub fn start_attempt(
         mode,
         break_hz,
         rms_floor,
+        recalibrate: args.recalibrate.unwrap_or(false),
     };
 
     // Prefer live mic; fall back to a silent engine so UI still works in CI
@@ -395,7 +423,9 @@ pub fn start_attempt(
     *state.mic.lock().map_err(|e| e.to_string())? = Some(session);
 
     // Mark node started
-    let _ = write_progress(&app, &state, &args.node_id, "started", "");
+    if !args.recalibrate.unwrap_or(false) {
+        let _ = write_progress(&app, &state, &args.node_id, "started", "");
+    }
 
     Ok(json!({
         "ok": true,
@@ -439,6 +469,8 @@ pub fn finish_attempt(
     state: State<'_, AppState>,
     node_id: String,
     mark_settled: Option<bool>,
+    recalibrate: Option<bool>,
+    cnat_fingering: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let result = {
         let mut mic = state.mic.lock().map_err(|e| e.to_string())?;
@@ -454,13 +486,18 @@ pub fn finish_attempt(
                     frames: vec![],
                     target_hz: *state.attempt_target_hz.lock().map_err(|e| e.to_string())?,
                     remark_note: None,
+                    warm: false,
+                    cnat_disagree: false,
+                    ghost: None,
                 }
             }
         }
     };
 
-    // Write calibration if first_sound settled
-    if node_id == "first_sound" {
+    let recalibrate = recalibrate.unwrap_or(false);
+    // Calibration is the settled low-D hold. Recalibrate uses that same hold
+    // between attempts and does not write progress for the node on screen.
+    if node_id == "first_sound" || recalibrate {
         if let (Some(bh), Some(rf)) = (result.break_hz, result.rms_floor) {
             let dir = data_dir(&app);
             let mut st = store::load(&dir)?;
@@ -475,17 +512,20 @@ pub fn finish_attempt(
         }
     }
 
-    if result.settled && mark_settled.unwrap_or(true) {
+    if result.settled && mark_settled.unwrap_or(true) && !recalibrate {
         let _ = write_progress(&app, &state, &node_id, "settled", "heard");
         let (pack_id, cnat_id) = {
             let pack = state.pack.lock().map_err(|e| e.to_string())?;
             (pack.manifest.id.clone(), pack.manifest.cnat_id.clone())
         };
         if pack_id == "c-natural" && node_id == "cnat_hold" && !cnat_id.is_empty() {
+            let chosen = cnat_fingering
+                .filter(|id| id == "oxxooo" || id == "oxxoxx")
+                .unwrap_or(cnat_id);
             let dir = data_dir(&app);
             let mut st = store::load(&dir)?;
             if let Some(id) = st.active_profile_id.clone() {
-                store::set_cnat(&mut st, &id, &cnat_id);
+                store::set_cnat(&mut st, &id, &chosen);
             }
             store::save(&dir, &st)?;
         }
@@ -500,6 +540,9 @@ pub fn finish_attempt(
         "target_hz": target_after,
         "remark_note": result.remark_note,
         "frame_count": result.frames.len(),
+        "warm": result.warm,
+        "cnat_disagree": result.cnat_disagree,
+        "ghost": result.ghost,
     }))
 }
 

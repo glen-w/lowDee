@@ -69,9 +69,7 @@ pub fn run() {
             }
             let mut candidates = vec![
                 std::env::current_dir().unwrap_or_default().join("pack"),
-                std::env::current_dir()
-                    .unwrap_or_default()
-                    .join("../pack"),
+                std::env::current_dir().unwrap_or_default().join("../pack"),
             ];
             if let Ok(resource) = app.path().resource_dir() {
                 candidates.push(resource.join("pack"));

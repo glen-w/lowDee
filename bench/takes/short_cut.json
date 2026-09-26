@@ -1,0 +1,11 @@
+{
+  "wav": "short_cut.wav",
+  "mode": "ornament",
+  "note": "A4",
+  "gesture": "cut",
+  "break_hz": 293.66,
+  "rms_floor": 0.05,
+  "hop_ms": 10,
+  "expect_evidence": "abstain",
+  "expect_settled": true
+}

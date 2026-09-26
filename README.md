@@ -13,7 +13,7 @@ Local practice companion for the Irish low-D whistle. One path from the first so
 | [FEATURES.md](FEATURES.md) | What the build does today, and what is still ahead |
 | [bench/HUMAN_GATE.md](bench/HUMAN_GATE.md) | Human gate on a real low D, and the synthetic stand-in |
 
-`brainstorm/` holds the notes those decisions came from. `pack/` is the chain the app loads. *The May Morning Dew* is the door.
+`brainstorm/` holds the notes those decisions came from. It is not the current product. `pack/` is the chain the app loads. *The May Morning Dew* is the door. A folder under `teacher/` can be opened from the desk after that door is settled; see [teacher/README.md](teacher/README.md).
 
 ## Develop
 
@@ -32,11 +32,10 @@ npm run tauri dev
 Vite serves the webview at `http://localhost:1420`. The window title is Low D. The packs bundled beside the app live in `pack/`. *The May Morning Dew* is the door. The rest of the chain opens only after the pack before it is settled.
 
 ```bash
-npm run test:picture
-npm run test:path
-npm run test:glossary
-cargo test --manifest-path src-tauri/Cargo.toml --offline
+npm run check
 ```
+
+That runs the picture, path, glossary, and ghost tests, `cargo test`, the synthetic fixtures, the trace scorer, and `listen gate`.
 
 ## Listen bench (not in the app)
 
@@ -46,4 +45,4 @@ cargo run --manifest-path src-tauri/Cargo.toml --bin listen -- fixtures
 python3 bench/score_traces.py
 ```
 
-`listen grade <name>` prints one fixture as JSON (`steady_low_d`, `early_break`, `noise`). Human protocol: [bench/HUMAN_GATE.md](bench/HUMAN_GATE.md).
+`listen grade <name>` prints one fixture as JSON (`steady_low_d`, `early_break`, `noise`). `listen grade-take <sidecar.json>` scores a wav named by that file. Human protocol: [bench/HUMAN_GATE.md](bench/HUMAN_GATE.md).

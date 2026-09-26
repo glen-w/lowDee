@@ -128,9 +128,11 @@ pub fn set_progress(
     via: &str,
 ) {
     let as_of = chrono::Utc::now().to_rfc3339();
-    if let Some(entry) = store.progress.iter_mut().find(|p| {
-        p.profile_id == profile_id && p.pack_id == pack_id && p.node_id == node_id
-    }) {
+    if let Some(entry) = store
+        .progress
+        .iter_mut()
+        .find(|p| p.profile_id == profile_id && p.pack_id == pack_id && p.node_id == node_id)
+    {
         if entry.state_reached == "settled" && state_reached != "settled" {
             return;
         }
@@ -171,10 +173,7 @@ mod tests {
     }
 
     fn dir(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "low-d-store-{name}-{}",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("low-d-store-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
@@ -185,9 +184,23 @@ mod tests {
         let path = dir("round");
         let mut store = AppStore::default();
         upsert_profile(&mut store, profile("a"));
-        set_progress(&mut store, "a", "may-morning-dew", "first_sound", "settled", "heard");
+        set_progress(
+            &mut store,
+            "a",
+            "may-morning-dew",
+            "first_sound",
+            "settled",
+            "heard",
+        );
         upsert_profile(&mut store, profile("b"));
-        set_progress(&mut store, "b", "may-morning-dew", "first_sound", "started", "");
+        set_progress(
+            &mut store,
+            "b",
+            "may-morning-dew",
+            "first_sound",
+            "started",
+            "",
+        );
         save(&path, &store).unwrap();
 
         let loaded = load(&path).unwrap();
@@ -211,9 +224,30 @@ mod tests {
     fn heard_settle_is_not_replaced_by_a_step() {
         let mut store = AppStore::default();
         upsert_profile(&mut store, profile("a"));
-        set_progress(&mut store, "a", "may-morning-dew", "first_sound", "settled", "heard");
-        set_progress(&mut store, "a", "may-morning-dew", "first_sound", "settled", "stepped");
-        set_progress(&mut store, "a", "may-morning-dew", "first_sound", "started", "");
+        set_progress(
+            &mut store,
+            "a",
+            "may-morning-dew",
+            "first_sound",
+            "settled",
+            "heard",
+        );
+        set_progress(
+            &mut store,
+            "a",
+            "may-morning-dew",
+            "first_sound",
+            "settled",
+            "stepped",
+        );
+        set_progress(
+            &mut store,
+            "a",
+            "may-morning-dew",
+            "first_sound",
+            "started",
+            "",
+        );
         let entry = store
             .progress
             .iter()

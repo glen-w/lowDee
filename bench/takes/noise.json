@@ -1,0 +1,6 @@
+{
+  "wav": "noise.wav",
+  "mode": "first_sound",
+  "expect_evidence": "couldnt_hear",
+  "expect_settled": false
+}
