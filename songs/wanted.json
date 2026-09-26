@@ -1,0 +1,25 @@
+{
+  "songs": [
+    {
+      "pack_id": "salley-gardens",
+      "queries": [
+        "Down by the Salley Gardens",
+        "Salley Gardens",
+        "Sally Gardens",
+        "Down by the Sally Gardens"
+      ]
+    },
+    {
+      "pack_id": "as-i-roved-out",
+      "queries": ["As I Roved Out"]
+    },
+    {
+      "pack_id": "amazing-grace",
+      "queries": ["Amazing Grace"]
+    },
+    {
+      "pack_id": "skye-boat-song",
+      "queries": ["Skye Boat Song", "The Skye Boat Song"]
+    }
+  ]
+}

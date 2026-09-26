@@ -20,6 +20,33 @@ pub struct WhistleProfile {
     /// Which C-natural fingering held on this stick. Empty until that pack settles.
     #[serde(default)]
     pub cnat_fingering: Option<String>,
+    /// Hear starts at the whistle when a book recording is the model.
+    #[serde(default = "default_true")]
+    pub skip_book_talk: bool,
+    /// Hands-and-breath pass when a stored profile opens the app.
+    #[serde(default = "default_true")]
+    pub warmup_on_launch: bool,
+    /// Song packs this whistle has added. Empty until one is added.
+    #[serde(default)]
+    pub lesson_packs: Vec<String>,
+    /// What happens after a settled section. Missing means the next one in this part.
+    #[serde(default)]
+    pub auto_advance: AutoAdvance,
+}
+
+/// How far a settled section walks without another click.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoAdvance {
+    #[default]
+    Inside,
+    Across,
+    Highlight,
+    Off,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

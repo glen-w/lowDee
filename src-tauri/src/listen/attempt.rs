@@ -13,6 +13,13 @@ use super::types::{
 };
 
 const PHRASE_DWELL_SECS: f32 = 0.12;
+/// Quiet after the line or the hold is already done. Longer than a breath gap.
+const STOP_AFTER_GOAL_SECS: f32 = 0.55;
+/// Quiet when they stop before the goal. Longer than a breath in the long low-D hold.
+const STOP_ABANDON_SECS: f32 = 1.8;
+/// Quiet after an ornament. Longer than the gap inside a cut or a roll.
+const STOP_ORNAMENT_SECS: f32 = 0.7;
+const STOP_HEARD_FRAMES: usize = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Frame {
@@ -27,6 +34,9 @@ pub struct Frame {
     pub hold_ratio: f32,
     /// Set only when the heard scale note differs from the expected one by a single hole.
     pub leak_hole: Option<u8>,
+    /// The player has stopped. Latched once, after the attempt has been heard.
+    #[serde(default)]
+    pub stopped: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +95,9 @@ pub struct GhostSpan {
     pub note: String,
     /// Expected interval, in cents, from the frozen target.
     pub cents: f32,
+    /// cut, tap, roll, and the later gestures. Empty when the note is bare.
+    #[serde(default)]
+    pub mark: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,6 +192,10 @@ pub struct AttemptEngine {
     crack_low: u32,
     phrase_dwell: f32,
     off_secs: f32,
+    /// Trailing quiet after the attempt has been heard.
+    quiet_secs: f32,
+    /// Stop has latched. Later frames keep it.
+    stopped: bool,
     samples_buf: Vec<f32>,
     /// Mono samples for Hear that. Capped. Not the sliding pitch window.
     take: Vec<f32>,
@@ -224,6 +241,8 @@ impl AttemptEngine {
             crack_low: 0,
             phrase_dwell: 0.0,
             off_secs: 0.0,
+            quiet_secs: 0.0,
+            stopped: false,
             samples_buf: Vec::new(),
             take: Vec::new(),
             hop_samples: hop_samples.max(256),
@@ -341,6 +360,7 @@ impl AttemptEngine {
             rms: energy,
         });
         self.track_phrase(est.hz, sounding, tol);
+        self.note_stop(sounding);
 
         let frame = Frame {
             t_ms: self.t_ms,
@@ -353,6 +373,7 @@ impl AttemptEngine {
             phrase_index: self.phrase_idx,
             hold_ratio: self.hold_ratio(),
             leak_hole: self.leak_for(est.hz, tol),
+            stopped: self.stopped,
         };
         self.frames.push(frame.clone());
         frame
@@ -480,6 +501,51 @@ impl AttemptEngine {
 
         self.phrase_dwell = 0.0;
         self.phrase_idx = next_i.min(notes.len() - 1);
+    }
+
+    /// Latch a stop once the attempt has been heard and then goes quiet.
+    /// A breath, and a gap inside an ornament, stay under the tail.
+    fn note_stop(&mut self, sounding: bool) {
+        if self.stopped {
+            return;
+        }
+        let heard = self.frames.iter().filter(|frame| frame.hz.is_some()).count();
+        if heard < STOP_HEARD_FRAMES {
+            self.quiet_secs = 0.0;
+            return;
+        }
+        if sounding {
+            self.quiet_secs = 0.0;
+            return;
+        }
+        self.quiet_secs += self.cfg.hop_ms / 1000.0;
+        if self.quiet_secs + 0.0001 >= self.stop_tail() {
+            self.stopped = true;
+        }
+    }
+
+    fn goal_met(&self) -> bool {
+        match &self.cfg.mode {
+            AttemptMode::Phrase { notes, .. } | AttemptMode::OnTheBreath { notes } => {
+                !notes.is_empty() && self.notes_confirmed >= notes.len()
+            }
+            AttemptMode::Ornament { .. } => false,
+            _ => {
+                let goal = self.hold_goal();
+                goal > 0.0 && self.hold_secs >= goal
+            }
+        }
+    }
+
+    fn stop_tail(&self) -> f32 {
+        if matches!(self.cfg.mode, AttemptMode::Ornament { .. }) {
+            return STOP_ORNAMENT_SECS;
+        }
+        if self.goal_met() || self.early_break_latched {
+            STOP_AFTER_GOAL_SECS
+        } else {
+            STOP_ABANDON_SECS
+        }
     }
 
     fn leak_for(&self, hz: Option<f32>, tol: f32) -> Option<u8> {
@@ -659,28 +725,37 @@ impl AttemptEngine {
         }
         let base = self.cfg.break_hz.unwrap_or(DEFAULT_LOW_D_HZ);
         let mut spans = Vec::new();
-        let mut open: Option<(String, f32)> = None;
+        let mut open: Option<(String, f32, usize)> = None;
         for frame in &self.frames {
             let Some(note) = frame.expected_note.clone() else {
                 continue;
             };
+            let idx = frame.phrase_index;
             match &open {
-                Some((name, _)) if name == &note => {}
-                Some((name, t0)) => {
-                    spans.push(self.span(name, *t0, frame.t_ms, base, target));
-                    open = Some((note, frame.t_ms));
+                Some((name, _, open_idx)) if name == &note && *open_idx == idx => {}
+                Some((name, t0, open_idx)) => {
+                    spans.push(self.span(name, *t0, frame.t_ms, base, target, *open_idx));
+                    open = Some((note, frame.t_ms, idx));
                 }
-                None => open = Some((note, frame.t_ms)),
+                None => open = Some((note, frame.t_ms, idx)),
             }
         }
-        if let Some((name, t0)) = open {
+        if let Some((name, t0, idx)) = open {
             let end = self.frames.last().map(|f| f.t_ms).unwrap_or(t0);
-            spans.push(self.span(&name, t0, end, base, target));
+            spans.push(self.span(&name, t0, end, base, target, idx));
         }
         Some(GhostTrace { points, spans })
     }
 
-    fn span(&self, note: &str, t0_ms: f32, t1_ms: f32, base: f32, target: f32) -> GhostSpan {
+    fn span(
+        &self,
+        note: &str,
+        t0_ms: f32,
+        t1_ms: f32,
+        base: f32,
+        target: f32,
+        phrase_index: usize,
+    ) -> GhostSpan {
         let cents = NoteName::from_str(note)
             .map(|named| crate::listen::types::cents_between(target_hz(base, named), target))
             .filter(|c| c.is_finite())
@@ -690,6 +765,19 @@ impl AttemptEngine {
             t1_ms,
             note: note.to_string(),
             cents,
+            mark: self.mark_on(phrase_index),
+        }
+    }
+
+    fn mark_on(&self, phrase_index: usize) -> String {
+        match &self.cfg.mode {
+            AttemptMode::Ornament { gesture, .. } => gesture.as_str().to_string(),
+            AttemptMode::Phrase { marks, .. } => marks
+                .iter()
+                .find(|m| m.note_index == phrase_index)
+                .map(|m| m.gesture.as_str().to_string())
+                .unwrap_or_default(),
+            _ => String::new(),
         }
     }
 
@@ -1274,6 +1362,15 @@ mod tests {
         );
         assert_eq!(result.evidence, Evidence::CutTooLong, "{result:?}");
         assert!(!result.settled);
+        let ghost = result.ghost.expect("cut ghost");
+        assert!(
+            ghost
+                .spans
+                .iter()
+                .any(|s| s.note == "A4" && s.mark == "cut"),
+            "{:?}",
+            ghost.spans
+        );
     }
 
     #[test]
@@ -1296,6 +1393,8 @@ mod tests {
         );
         assert_eq!(result.evidence, Evidence::BecameNotes, "{result:?}");
         assert!(!result.settled);
+        let ghost = result.ghost.expect("roll ghost");
+        assert!(ghost.spans.iter().any(|s| s.mark == "short_roll"));
     }
 
     #[test]
@@ -1317,6 +1416,8 @@ mod tests {
         let ghost = phrase.ghost.expect("phrase ghost");
         assert!(ghost.points.len() >= 2 && ghost.points.len() <= 64);
         assert!(!ghost.spans.is_empty());
+        assert!(ghost.spans.iter().all(|s| s.mark.is_empty()));
+        assert!(ghost.spans.iter().any(|s| s.note == "D4"));
 
         let noise = run(
             AttemptConfig {
@@ -1498,5 +1599,164 @@ mod tests {
         assert!(result.take_wav.is_some());
         assert!((result.target_hz.unwrap() - hz).abs() < 1.0);
         assert!(!result.settled);
+    }
+
+    fn first_cfg() -> AttemptConfig {
+        AttemptConfig {
+            sample_rate: 44100,
+            hop_ms: 30.0,
+            mode: AttemptMode::FirstSound,
+            break_hz: None,
+            rms_floor: None,
+            recalibrate: false,
+        }
+    }
+
+    fn phrase_cfg(notes: Vec<NoteName>) -> AttemptConfig {
+        AttemptConfig {
+            sample_rate: 44100,
+            hop_ms: 30.0,
+            mode: AttemptMode::Phrase {
+                notes,
+                breaths: vec![],
+                marks: vec![],
+            },
+            break_hz: Some(DEFAULT_LOW_D_HZ),
+            rms_floor: Some(0.05),
+            recalibrate: false,
+        }
+    }
+
+    #[test]
+    fn silence_before_a_note_does_not_stop() {
+        let result = run(first_cfg(), &synth::silence(44100, 2.0));
+        assert!(result.frames.iter().all(|frame| !frame.stopped));
+    }
+
+    #[test]
+    fn a_finished_phrase_then_silence_stops() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let mut samples = synth::fixture_joined_phrase(44100, hz);
+        samples.extend(synth::silence(44100, 0.7));
+        let result = run(
+            phrase_cfg(vec![
+                NoteName::D4,
+                NoteName::E4,
+                NoteName::Fs4,
+                NoteName::G4,
+            ]),
+            &samples,
+        );
+        assert_eq!(result.evidence, Evidence::PhraseOk);
+        assert!(result.frames.iter().any(|frame| !frame.stopped));
+        assert!(result.frames.last().is_some_and(|frame| frame.stopped));
+    }
+
+    #[test]
+    fn a_breath_inside_a_phrase_does_not_stop() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let result = run(
+            phrase_cfg(vec![NoteName::D4, NoteName::E4]),
+            &synth::fixture_two_notes_gap(44100, hz, 0.4),
+        );
+        assert!(result.frames.iter().all(|frame| !frame.stopped));
+    }
+
+    #[test]
+    fn a_full_hold_stops_only_after_the_note_ends() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let sounding = run(first_cfg(), &synth::fixture_steady_low_d(44100, hz));
+        assert!(sounding.frames.last().is_some_and(|frame| frame.hold_ratio >= 1.0));
+        assert!(sounding.frames.last().is_some_and(|frame| !frame.stopped));
+
+        let mut stopped = synth::fixture_steady_low_d(44100, hz);
+        stopped.extend(synth::silence(44100, 0.7));
+        let done = run(first_cfg(), &stopped);
+        assert!(done.frames.last().is_some_and(|frame| frame.stopped));
+    }
+
+    #[test]
+    fn a_short_breath_in_the_long_hold_does_not_stop() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let mut samples = synth::sine(hz, 44100, 3.0, 0.35);
+        samples.extend(synth::silence(44100, 0.4));
+        samples.extend(synth::sine(hz, 44100, 1.0, 0.35));
+        let result = run(first_cfg(), &samples);
+        assert!(result.frames.iter().all(|frame| !frame.stopped));
+    }
+
+    #[test]
+    fn a_long_quiet_after_a_partial_hold_stops() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let mut samples = synth::sine(hz, 44100, 2.0, 0.35);
+        samples.extend(synth::silence(44100, 2.0));
+        let result = run(first_cfg(), &samples);
+        assert!(result.frames.iter().any(|frame| !frame.stopped));
+        assert!(result.frames.last().is_some_and(|frame| frame.stopped));
+    }
+
+    fn low_hold_cfg() -> AttemptConfig {
+        AttemptConfig {
+            sample_rate: 44100,
+            hop_ms: 30.0,
+            mode: AttemptMode::BreathOctave { want_octave: false },
+            break_hz: Some(DEFAULT_LOW_D_HZ),
+            rms_floor: Some(0.05),
+            recalibrate: false,
+        }
+    }
+
+    fn cut_cfg() -> AttemptConfig {
+        AttemptConfig {
+            sample_rate: 44100,
+            hop_ms: 30.0,
+            mode: AttemptMode::Ornament {
+                note: NoteName::A4,
+                gesture: GestureKind::Cut,
+            },
+            break_hz: Some(DEFAULT_LOW_D_HZ),
+            rms_floor: Some(0.05),
+            recalibrate: false,
+        }
+    }
+
+    #[test]
+    fn an_early_break_stops_on_the_short_tail_and_keeps_the_target() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let sounding = run(low_hold_cfg(), &synth::fixture_early_break(44100, hz));
+        assert_eq!(sounding.evidence, Evidence::EarlyBreak);
+        assert_eq!(sounding.target_hz, Some(hz));
+        assert!(sounding.frames.last().is_some_and(|frame| !frame.stopped));
+
+        let mut brief = synth::fixture_early_break(44100, hz);
+        brief.extend(synth::silence(44100, 0.4));
+        let held = run(low_hold_cfg(), &brief);
+        assert!(held.frames.iter().all(|frame| !frame.stopped));
+        assert_eq!(held.target_hz, Some(hz));
+
+        let mut quiet = synth::fixture_early_break(44100, hz);
+        quiet.extend(synth::silence(44100, 0.7));
+        let stopped = run(low_hold_cfg(), &quiet);
+        assert_eq!(stopped.evidence, Evidence::EarlyBreak);
+        assert!(!stopped.settled);
+        assert_eq!(stopped.target_hz, Some(hz));
+        assert!(stopped.frames.iter().any(|frame| !frame.stopped));
+        assert!(stopped.frames.last().is_some_and(|frame| frame.stopped));
+    }
+
+    #[test]
+    fn an_ornament_gap_is_shorter_than_a_stop() {
+        let body = target_hz(DEFAULT_LOW_D_HZ, NoteName::A4);
+        let mut gap = synth::sine(body, 44100, 0.4, 0.35);
+        gap.extend(synth::silence(44100, 0.4));
+        gap.extend(synth::sine(body, 44100, 0.4, 0.35));
+        let through = run(cut_cfg(), &gap);
+        assert!(through.frames.iter().all(|frame| !frame.stopped));
+
+        let mut quiet = synth::sine(body, 44100, 0.5, 0.35);
+        quiet.extend(synth::silence(44100, 0.9));
+        let stopped = run(cut_cfg(), &quiet);
+        assert!(stopped.frames.iter().any(|frame| !frame.stopped));
+        assert!(stopped.frames.last().is_some_and(|frame| frame.stopped));
     }
 }

@@ -9,7 +9,7 @@ pub use crate::listen::attempt::{
 };
 use crate::listen::mic::MicSession;
 use crate::listen::ornaments::GestureKind;
-use crate::listen::types::{Background, NoteName, Reads, WhistleProfile};
+use crate::listen::types::{AutoAdvance, Background, NoteName, Reads, WhistleProfile};
 use crate::listen::Evidence;
 use crate::pack::{self, Catalog, Pack, ProgressMark};
 use crate::store::{self, AppStore};
@@ -66,6 +66,7 @@ pub struct FrameDto {
     pub phrase_index: usize,
     pub hold_ratio: f32,
     pub leak_hole: Option<u8>,
+    pub stopped: bool,
 }
 
 fn parse_reads(s: &str) -> Reads {
@@ -73,6 +74,15 @@ fn parse_reads(s: &str) -> Reads {
         "some" => Reads::Some,
         "yes" => Reads::Yes,
         _ => Reads::No,
+    }
+}
+
+fn parse_auto_advance(s: &str) -> AutoAdvance {
+    match s {
+        "across" => AutoAdvance::Across,
+        "highlight" => AutoAdvance::Highlight,
+        "off" => AutoAdvance::Off,
+        _ => AutoAdvance::Inside,
     }
 }
 
@@ -110,6 +120,10 @@ pub fn get_pack(state: State<'_, AppState>) -> Result<serde_json::Value, String>
             "rights": pack.manifest.rights,
             "aka": pack.manifest.aka,
             "source": pack.manifest.source,
+            "licence": pack.manifest.licence,
+            "author": pack.manifest.author,
+            "site": pack.manifest.site,
+            "placement": pack.manifest.placement,
             "session": pack.manifest.session,
             "pulse": pack.manifest.pulse,
             "pulse_beats": pack.manifest.pulse_beats,
@@ -205,6 +219,10 @@ pub fn save_profile(
         reads: parse_reads(&args.reads),
         background: parse_background(&args.background),
         cnat_fingering: None,
+        skip_book_talk: true,
+        warmup_on_launch: true,
+        lesson_packs: Vec::new(),
+        auto_advance: AutoAdvance::Inside,
     };
     store::upsert_profile(&mut st, profile.clone());
     store::save(&dir, &st)?;
@@ -218,6 +236,9 @@ pub fn update_profile_answers(
     profile_id: String,
     reads: String,
     background: String,
+    skip_book_talk: Option<bool>,
+    warmup_on_launch: Option<bool>,
+    auto_advance: Option<String>,
 ) -> Result<WhistleProfile, String> {
     let dir = data_dir(&app);
     let mut st = store::load(&dir)?;
@@ -228,6 +249,48 @@ pub fn update_profile_answers(
         .ok_or_else(|| "profile not found".to_string())?;
     profile.reads = parse_reads(&reads);
     profile.background = parse_background(&background);
+    if let Some(skip) = skip_book_talk {
+        profile.skip_book_talk = skip;
+    }
+    if let Some(show) = warmup_on_launch {
+        profile.warmup_on_launch = show;
+    }
+    if let Some(advance) = auto_advance {
+        profile.auto_advance = parse_auto_advance(&advance);
+    }
+    let out = profile.clone();
+    store::save(&dir, &st)?;
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn set_lesson_packs(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    profile_id: String,
+    pack_ids: Vec<String>,
+) -> Result<WhistleProfile, String> {
+    let dir = data_dir(&app);
+    let mut st = store::load(&dir)?;
+    let marks: Vec<ProgressMark> = st
+        .progress
+        .iter()
+        .map(|p| ProgressMark {
+            profile_id: p.profile_id.clone(),
+            pack_id: p.pack_id.clone(),
+            node_id: p.node_id.clone(),
+            state_reached: p.state_reached.clone(),
+        })
+        .collect();
+    let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
+    let allowed = pack::open_song_ids(&catalog, &marks, &profile_id);
+    drop(catalog);
+    let profile = st
+        .profiles
+        .iter_mut()
+        .find(|p| p.profile_id == profile_id)
+        .ok_or_else(|| "profile not found".to_string())?;
+    profile.lesson_packs = pack::retain_lesson_packs(&pack_ids, &allowed);
     let out = profile.clone();
     store::save(&dir, &st)?;
     Ok(out)
@@ -299,6 +362,50 @@ pub fn read_ref(
     let pack = state.pack.lock().map_err(|e| e.to_string())?;
     let path = pack::ref_file(&pack, &relative).ok_or_else(|| "ref not found".to_string())?;
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[derive(serde::Serialize)]
+pub struct BookClip {
+    pub file: String,
+    pub spans: Vec<[f32; 2]>,
+}
+
+#[tauri::command]
+pub fn book_clip(
+    pack_id: String,
+    node_id: String,
+    step: String,
+) -> Result<Vec<BookClip>, String> {
+    let Some(dir) = crate::book::book_dir() else {
+        return Ok(Vec::new());
+    };
+    let clips = crate::book::load_clips(&dir)?;
+    Ok(crate::book::find_clips(&clips, &pack_id, &node_id, &step)
+        .into_iter()
+        .filter(|clip| dir.join(&clip.file).is_file())
+        .map(|clip| BookClip {
+            file: clip.file.clone(),
+            spans: clip.spans.clone(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub fn song_sheet(pack_id: String, title: String, aka: Vec<String>) -> Result<Option<crate::song::SongSheet>, String> {
+    let Some(dir) = crate::song::songs_dir() else {
+        return Ok(None);
+    };
+    Ok(crate::song::find_sheet(&dir, &pack_id, &title, &aka))
+}
+
+#[tauri::command]
+pub fn read_book(file: String) -> Result<tauri::ipc::Response, String> {
+    let dir = crate::book::book_dir().ok_or_else(|| "book not found".to_string())?;
+    let clips = crate::book::load_clips(&dir)?;
+    let clip =
+        crate::book::allowed_file(&clips, &file).ok_or_else(|| "book not found".to_string())?;
+    let bytes = std::fs::read(dir.join(&clip.file)).map_err(|e| e.to_string())?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -471,6 +578,7 @@ pub fn poll_frame(state: State<'_, AppState>) -> Result<Option<FrameDto>, String
         phrase_index: f.phrase_index,
         hold_ratio: f.hold_ratio,
         leak_hole: f.leak_hole,
+        stopped: f.stopped,
     }))
 }
 

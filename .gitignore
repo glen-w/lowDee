@@ -23,6 +23,20 @@ target
 corpus/*
 !corpus/README.md
 
+# Local copy of the Low Whistle Book companion tracks. The guide and the map stay.
+book/*
+!book/README.md
+!book/tracks.json
+
+# Tunes brought in to look at. The guide stays.
+teacher/*
+!teacher/README.md
+
+# Fetched lyrics and melody MIDI. Personal practice on this machine. The guide stays.
+songs/library/
+__pycache__/
+*.pyc
+
 # Bench output
 bench/out/
 *.trace.json

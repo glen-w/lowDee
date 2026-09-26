@@ -32,6 +32,19 @@ export interface WhistleProfile {
   reads: Reads;
   background: Background;
   cnat_fingering?: string | null;
+  /** Hear starts at the whistle when a book recording is the model. */
+  skip_book_talk?: boolean;
+  /** Hands-and-breath pass when this profile opens the app. Missing means show it. */
+  warmup_on_launch?: boolean;
+  /** Song packs added from those already open. Missing means none. */
+  lesson_packs?: string[];
+  /** After a settled section. Missing means the next one in this part. */
+  auto_advance?: "inside" | "across" | "highlight" | "off";
+}
+
+export interface BookClip {
+  file: string;
+  spans: number[][];
 }
 
 export interface ProgressEntry {
@@ -71,12 +84,18 @@ export interface PackSummary {
   rights: string;
   aka: string[];
   source: string;
+  licence?: string;
+  author?: string;
+  site?: string;
+  placement?: string;
   session: string;
   pulse: string;
   pulse_beats: number;
   playable: boolean;
   open: boolean;
   settled: boolean;
+  /** A page, or a phrase titled as the pack. Drills stay false. */
+  song: boolean;
 }
 
 export interface CatalogView {
@@ -103,6 +122,10 @@ export interface Pack {
     rights?: string;
     aka?: string[];
     source?: string;
+    licence?: string;
+    author?: string;
+    site?: string;
+    placement?: string;
     session?: string;
     pulse?: string;
     pulse_beats?: number;
@@ -138,23 +161,40 @@ export interface Pack {
   words?: { lines: Array<{ chunk_id: string; text: string }> };
 }
 
+export interface SongSheet {
+  pack_id: string;
+  title: string;
+  verses: string[];
+  credit: string;
+  licence: string;
+  source_name: string;
+  source_url: string;
+  also_name?: string;
+  also_url?: string;
+  retrieved: string;
+  melody: Array<{ note: string; beats: number }>;
+  playable: boolean;
+  folded: boolean;
+  trimmed?: boolean;
+}
+
 export const NODE_COPY: Record<
   string,
   { title: string; body: string; body_high_d?: string }
 > = {
   first_sound: {
     title: "First sound",
-    body: "Whistle to the mouth. Pads on all six holes. A steady low D. Hold until it sits still.",
+    body: "Whistle to the mouth. The pads cover the holes, not the tips: the second joint on the first two fingers of each hand, the first joint on the third. The little finger rests below the last hole and steadies the tube. A steady low D. Too much air goes shrill. Too little is a thin noise. Hold until it sits still.",
   },
   staircase: {
     title: "Staircase",
-    body: "One finger lifts at a time — only the notes the air uses. Hear it, find it, play it back.",
-    body_high_d: "Fingerings you know. Find them on this tube, one lift at a time.",
+    body: "One finger lifts at a time — only the notes the air uses. Relax the hands so the holes can seal. Hear it, find it, play it back.",
+    body_high_d: "Fingerings you know. On this tube the pads cover the holes, not the tips. Relax the hands so they can seal. Find them one lift at a time.",
   },
   breath_octave: {
     title: "Breath and octave",
-    body: "Same fingering as low D. Soft air keeps the low one. More air finds the octave — then come home.",
-    body_high_d: "The low whistle wants slower air than the small one. Soft first, then find the octave on purpose.",
+    body: "Same fingering as low D. Soft air keeps the low one. More air finds a point where it jumps the octave — then come home. On a high note, too much air pushes it sharp.",
+    body_high_d: "The low whistle wants slower air than the small one. Soft first, then find the octave on purpose. The jump is a change in pressure. On a high note, too much air pushes it sharp.",
   },
   hedwig: {
     title: "Hedwig's Theme",
@@ -162,7 +202,7 @@ export const NODE_COPY: Record<
   },
   on_the_breath: {
     title: "On the breath",
-    body: "A short phrase. The tongue starts the line, then stays off. Let the notes join.",
+    body: "A short phrase. Start the first note with a T or a D, then the tongue stays off. Let the notes join. After the start, the air holds the pitch: more is louder, and past a point it goes sharp.",
   },
   air_bare: {
     title: "The air, bare",
@@ -170,19 +210,19 @@ export const NODE_COPY: Record<
   },
   orn_cut: {
     title: "Cut",
-    body: "Hold A. Hole 2, the second from the window, is closed. Snap that hole open and shut, too short to hum. The note you hear is still A.",
+    body: "Hold A. Hole 2, the second from the window, is closed. Snap that hole open and shut, too short to hum. The pitch flicks up and A returns. If you can hum the flick, it has become a note.",
   },
   orn_tap: {
     title: "Tap",
-    body: "Hold A. Hole 3 is open. Flick it shut and open. The pitch dips and comes back to A.",
+    body: "Hold A. Hole 3 is open. Flick it shut and open, and lift it before the lower note has time to sound. The pitch dips and comes back to A.",
   },
   orn_roll: {
     title: "Roll",
-    body: "Still A. Snap hole 2 open and shut near the start. Later, flick hole 3 shut and open. A stays the note.",
+    body: "Still A. Give the note a moment, then snap hole 2 open and shut. Later, flick hole 3 shut and open. Keep A after the tap. A long note has room for both. A short one does not.",
   },
   air_may_morning_dew: {
     title: "The May Morning Dew",
-    body: "The same air, with cut, tap, and roll only where marked. Pictures can hide.",
+    body: "The same air, with cut, tap, and roll only where marked. Two of the same note in a row can take a cut or a tap between them. Pictures can hide.",
   },
 };
 

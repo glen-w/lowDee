@@ -59,6 +59,21 @@ export function phraseEvents(abc: string, notes: string[], breakHz: number): Ton
   });
 }
 
+/** One tone line after another, with a breath between lines. */
+export function songToneEvents(
+  chunks: readonly { abc: string; notes: readonly string[] }[],
+  breakHz: number,
+): ToneEvent[] {
+  const events: ToneEvent[] = [];
+  for (const chunk of chunks) {
+    const part = phraseEvents(chunk.abc, [...chunk.notes], breakHz);
+    if (part.length === 0) continue;
+    if (events.some((event) => event.hz > 0)) events.push({ hz: 0, seconds: 0.4 });
+    events.push(...part);
+  }
+  return events;
+}
+
 export function ornamentEvents(gesture: string, hz: number): ToneEvent[] {
   const name = gesture.trim().toLowerCase().replaceAll("_", " ");
   const up = hz * 2 ** (2 / 12);

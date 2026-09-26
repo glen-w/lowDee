@@ -25,6 +25,19 @@ pub enum GestureKind {
 }
 
 impl GestureKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            GestureKind::Cut => "cut",
+            GestureKind::Tap => "tap",
+            GestureKind::Roll => "roll",
+            GestureKind::ShortRoll => "short_roll",
+            GestureKind::Slide => "slide",
+            GestureKind::Cran => "cran",
+            GestureKind::DoubleTap => "double_tap",
+            GestureKind::Triplet => "triplet",
+        }
+    }
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "cut" => Some(GestureKind::Cut),

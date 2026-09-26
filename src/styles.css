@@ -219,6 +219,7 @@ h2 {
 .words {
   margin: 0.8rem 0 0;
   font-size: 1.05rem;
+  white-space: pre-line;
 }
 
 .shelf-list {
@@ -368,8 +369,25 @@ h2 {
 
 .ghost-line {
   width: 100%;
-  height: 4.5rem;
+  height: auto;
   display: block;
+  margin-top: 0.15rem;
+}
+
+.ghost-note,
+.ghost-gesture {
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+}
+
+.ghost-note {
+  fill: var(--cream-dim);
+  font-size: 15px;
+}
+
+.ghost-gesture {
+  fill: var(--brass);
+  font-size: 13px;
+  letter-spacing: 0.04em;
 }
 
 .ghost-played {
@@ -385,19 +403,11 @@ h2 {
   opacity: 0.75;
 }
 
-.answers {
-  margin-top: 0.8rem;
-  align-items: center;
-}
-
-.answers select {
-  font: inherit;
-  color: var(--cream);
-  background: transparent;
-  border: 1px solid var(--brass-dim);
-  border-radius: 999px;
-  padding: 0.25rem 0.6rem;
-  margin-left: 0.35rem;
+.ghost-tick {
+  stroke: var(--brass);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
 }
 
 .meta {
@@ -428,12 +438,59 @@ h2 {
   margin: 0.35rem 0 0.5rem;
 }
 
+.node-rail.grouped {
+  flex-direction: column;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.95rem;
+}
+
+.rail-kicker {
+  margin: 0 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--brass-dim);
+}
+
+.rail-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .path-note {
   margin: 0 0 1.1rem;
 }
 
+.lesson-set {
+  margin: 0.15rem 0 0.85rem;
+}
+
+.lesson-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.lesson-field {
+  margin: 0;
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
+.lesson-add {
+  margin-top: 0.55rem;
+}
+
+.lesson-off {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
 .node-rail button,
-.step-rail button {
+.step-rail button,
+.lesson-set button[data-lesson-pack] {
   padding: 0.35rem 0.75rem;
   font-size: 0.82rem;
   line-height: 1.2;
@@ -441,7 +498,8 @@ h2 {
   color: var(--cream-dim);
 }
 
-.node-rail button.current {
+.node-rail button.current,
+.lesson-set button[data-lesson-pack].current {
   background: var(--cream);
   color: var(--ink);
   border-color: var(--cream);
@@ -460,6 +518,10 @@ h2 {
 
 .step-rail {
   margin: 0 0 1rem;
+}
+
+.step-rail button.whole {
+  margin-left: 0.7rem;
 }
 
 .step-rail button.current {
@@ -550,6 +612,7 @@ h2 {
 
 .topbar button {
   flex-shrink: 0;
+  padding-inline: 0.7rem;
 }
 
 .glossary-jumps {
@@ -609,4 +672,29 @@ h2 {
 
 #glossary-count {
   margin: 0 0 0.85rem;
+}
+
+.lyrics-panel {
+  margin-top: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  background: rgba(26, 20, 15, 0.35);
+  border-radius: 10px;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.lyrics-panel .verse {
+  white-space: pre-wrap;
+  margin: 0 0 0.7rem;
+}
+
+.lyrics-panel .verse.current {
+  box-shadow: inset 2px 0 0 var(--brass);
+  padding-left: 0.55rem;
+}
+
+.lyrics-note {
+  font-size: 0.82rem;
+  color: var(--cream-dim);
+  margin: 0.45rem 0 0;
 }

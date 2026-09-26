@@ -377,7 +377,7 @@ const GLOSSARY: GlossaryEntry[] = [
     "roll",
     "Roll",
     "Ornaments",
-    "A cut near the start of a long note, a tap later in it. You still hear the note you meant, with those two gestures on it.",
+    "Give the note a moment, then a cut, then a tap, and keep the note after the tap. You still hear the note you meant.",
   ),
   entry(
     "long-roll",
@@ -396,7 +396,7 @@ const GLOSSARY: GlossaryEntry[] = [
     "cran",
     "Cran",
     "Ornaments",
-    "Several cuts in a row, stepping down the fingers, usually onto low D. It comes from the uilleann pipes. A later color on the whistle.",
+    "Several cuts in a row on low D: lift and replace one finger, then the next, then the next, then the first of those again. The note is still D. It comes from the uilleann pipes.",
     ["crann"],
   ),
   entry(
@@ -410,7 +410,7 @@ const GLOSSARY: GlossaryEntry[] = [
     "double-tap",
     "Double tap",
     "Ornaments",
-    "Two taps, one after the other, on the same note.",
+    "Coming down to the next note, the finger that arrives bounces: shut, open, shut. Too short to hum.",
   ),
   entry(
     "triplet",
@@ -428,7 +428,7 @@ const GLOSSARY: GlossaryEntry[] = [
     "vibrato",
     "Vibrato",
     "Ornaments",
-    "A gentle waver in a held note, from a finger hovering near an open hole or from the breath. An air may use a little. Dance tunes usually stay steady.",
+    "A small fast wobble in a held note. A finger waving over an open hole is the light way. The breath, from below the lungs, is the bigger one. An air may use a little. Dance tunes usually stay steady.",
   ),
   entry(
     "grace-note",

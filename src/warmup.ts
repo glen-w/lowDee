@@ -258,6 +258,7 @@ export function warmIntroHtml(steps: number, seconds: number): string {
     <div class="app-shell">
       <div class="topbar">
         <p class="eyebrow">Before you play</p>
+        <button type="button" class="ghost" id="settings-open">Settings</button>
         <button type="button" class="ghost" id="glossary-open">Glossary</button>
       </div>
       <h1>Hands, then breath</h1>
@@ -281,6 +282,7 @@ export function warmRunHtml(): string {
     <div class="app-shell">
       <div class="topbar">
         <p class="eyebrow" id="warm-kicker"></p>
+        <button type="button" class="ghost" id="settings-open">Settings</button>
         <button type="button" class="ghost" id="glossary-open">Glossary</button>
       </div>
       <h1 id="warm-title"></h1>
@@ -305,6 +307,7 @@ export function warmDoneHtml(): string {
     <div class="app-shell">
       <div class="topbar">
         <p class="eyebrow">Before you play</p>
+        <button type="button" class="ghost" id="settings-open">Settings</button>
         <button type="button" class="ghost" id="glossary-open">Glossary</button>
       </div>
       <h1>Pick up the whistle</h1>

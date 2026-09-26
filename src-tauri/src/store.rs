@@ -157,7 +157,7 @@ pub fn set_progress(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::listen::types::{Background, Reads};
+    use crate::listen::types::{AutoAdvance, Background, Reads, WhistleProfile};
 
     fn profile(id: &str) -> WhistleProfile {
         WhistleProfile {
@@ -169,6 +169,10 @@ mod tests {
             reads: Reads::No,
             background: Background::None,
             cnat_fingering: None,
+            skip_book_talk: true,
+            warmup_on_launch: true,
+            lesson_packs: Vec::new(),
+            auto_advance: AutoAdvance::Inside,
         }
     }
 
@@ -177,6 +181,48 @@ mod tests {
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn an_old_profile_skips_the_book_talk() {
+        let raw = r#"{
+            "profile_id": "a",
+            "label": "horn",
+            "break_hz": 290.0,
+            "rms_floor": 0.02,
+            "cal_as_of": "t",
+            "reads": "no",
+            "background": "none"
+        }"#;
+        let profile: WhistleProfile = serde_json::from_str(raw).unwrap();
+        assert!(profile.skip_book_talk);
+        assert!(profile.warmup_on_launch);
+        assert!(profile.lesson_packs.is_empty());
+        assert_eq!(profile.auto_advance, AutoAdvance::Inside);
+    }
+
+    #[test]
+    fn warmup_on_launch_can_be_turned_off() {
+        let path = dir("warmup-off");
+        let mut store = AppStore::default();
+        let mut off = profile("off");
+        off.warmup_on_launch = false;
+        upsert_profile(&mut store, off);
+        save(&path, &store).unwrap();
+        let loaded = load(&path).unwrap();
+        assert!(!loaded.profiles[0].warmup_on_launch);
+    }
+
+    #[test]
+    fn auto_advance_off_round_trips() {
+        let path = dir("advance-off");
+        let mut store = AppStore::default();
+        let mut horn = profile("off");
+        horn.auto_advance = AutoAdvance::Off;
+        upsert_profile(&mut store, horn);
+        save(&path, &store).unwrap();
+        let loaded = load(&path).unwrap();
+        assert_eq!(loaded.profiles[0].auto_advance, AutoAdvance::Off);
     }
 
     #[test]

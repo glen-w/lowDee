@@ -18,7 +18,7 @@ One path. The instrument skills are the same for everyone: seal a note, find the
 
 The tune at the end of the first pack is the slow air *The May Morning Dew*. Notation is off unless they want it. The microphone stays on the device. Feedback is a short remark, the kind a patient player makes across a table. There is no score, no account, and no network required to play.
 
-After that air, the same listen loop and the same whistle profile open a second wave of local packs. Those packs follow the syllabus of *The Low Whistle Book*. Chapter names in the app are pointers (“Getting Started”, “First Tones”). Settings, diagrams, prose, and audio in the packs are ours. The book’s CD and later download tracks are not reference audio.
+After that air, the same listen loop and the same whistle profile open a second wave of local packs. Those packs follow the syllabus of *The Low Whistle Book*. Chapter names in the app are pointers (“Getting Started”, “First Tones”). Settings, diagrams, and prose in the packs are ours. The book’s tracks are not in the repo. When a copy sits in `book/` on this machine, Hear can play the matching file.
 
 The app is a companion to a teacher, to the session, and to the book on the table — not a replacement for any of them. It owns the first months of the low D, then gets out of the way inside the tunes.
 
@@ -82,7 +82,7 @@ Wave 2 does not reopen that hour. Once low D will hold, a short review walks the
 
 ### First screen
 
-An object card: a nickname for this whistle, “this horn.” No microphone test and no tuner needle. Every sitting then opens with a guided pass for the hands and the breath — wrist and finger stretches, a short set of wrist motions, one finger at a time on the table, then a counted hiss — before the whistle comes up. Ease off if it hurts. It is a warm-up, not a treatment, and it is not stored. The next thing after that is how to hold it.
+An object card: a nickname for this whistle, “this horn.” No microphone test and no tuner needle. A sitting opens with a guided pass for the hands and the breath — wrist and finger stretches, a short set of wrist motions, one finger at a time on the table, then a counted hiss — before the whistle comes up. Ease off if it hurts. It is a warm-up, not a treatment, and the pass itself is not stored. Settings can skip that pass the next time the app opens. The next thing after the pass is how to hold it.
 
 When low D will sit still for about ten seconds, that hold is the calibration. Break frequency and breath energy lock, one settled cue, and the profile is stored. Failed early attempts are practice, not a bad score. Calibration audio is not kept in the progress record and is not uploaded.
 
@@ -94,7 +94,7 @@ The card uses the same session-table surface as practice. The profile lives on t
 { reads: no | some | yes, background: none | wind | other | high_d }
 ```
 
-`high_d` is an answer someone might give. It shortens a few sentences. It is not the default, and it is not a track.
+`high_d` is an answer someone might give. It shortens a few sentences. It is not the default, and it is not a track. The name card asks. After a sitting has started, the practice card does not ask again. A change is Settings, which writes the same fields on the profile.
 
 ### Four listen states
 
@@ -143,6 +143,8 @@ On the air, play resumes from the start of the current chunk. Putting the pictur
 Ornament glyphs appear only on the nodes that teach them. In the pack they are marks beside the tune, not a cluster of grace notes inside the ABC.
 
 Song packs in wave 2 may show words after the line has been heard, aligned to phrase marks, hideable like the staff. Singing stays offered and ungraded.
+
+A fuller set of words can sit beside that line, and it can be hidden on its own. Those words are not in the pack. `songs/ingest.py` can fetch them, and a melody MIDI, from the [Traditional Music Library](https://www.traditionalmusic.co.uk/song-midis/songs-midis.html) and the [Mudcat Café](https://mudcat.org/) Digital Tradition, into `songs/library/`. That folder stays off git and out of the bundle. The sitting does not call the network. The panel names the page the words came from. It says the copy is for personal practice, that it is not this pack’s setting, and that it is not a licence to perform or to pass the files on. Many of the songs are old. A transcription on either site can still be in copyright, and neither site promises that every file is free to reuse.
 
 ### How feedback sounds
 
@@ -231,7 +233,7 @@ The whistle profile, and the reading and background answers, are not in the pack
 
 **Pictures versus gestures.** ABC holds pitches, durations, and phrases. The fingering file is what a non-reader is actually following. Ornaments live beside both, and the bare air does not use them. Grading raw grace-note spelling would reward the transcription.
 
-**Reference audio.** One player, slow, clear low-D attack, phrase by phrase. That is what a beginner copies. We do not ask them to imitate a synthesized whistle, and we do not ship other people’s commercial recordings. The book’s CD and download tracks are never reference audio. Until that recording is in the pack, Hear plays the pack’s own notes as plain tones, slow enough to follow. The card says they are the notes. A wav replaces the tones. Hedwig’s Theme stays without a melody.
+**Reference audio.** One player, slow, clear low-D attack, phrase by phrase. That is what a beginner copies. We do not ask them to imitate a synthesized whistle, and we do not ship other people’s commercial recordings. If the book’s files are in `book/` on this machine, Hear plays the matching tracks. On the door that thickens the cut, the tap, the roll, and the octave. Settings can skip ahead to the part that step uses. When those files are absent, a wav in the pack plays, and when that is absent too, Hear plays the pack’s notes as plain tones. The card says when the sound is only the notes. Hedwig’s Theme stays without a melody.
 
 ---
 
@@ -267,7 +269,7 @@ One sentence, then the loop opens. Still no percentage.
 ### Whistory, transposition, discography
 
 - **Whistory** is a short page in our words beside the profile: the low D as its own tube. No paste of the chapter.
-- **Transposition** stays a refusal with a reason. Other keys are other whistles. The product remains low D only. The book’s back table is mentioned; it is not rebuilt as a second instrument.
+- **Transposition** stays a refusal for the book’s table. Other keys are other whistles. The product remains low D only. That table is mentioned; it is not rebuilt as a second instrument. A melody someone brings in is different: the file’s pitches are moved onto this tube, and the card says how far.
 - **Discography** is a list of names to hear elsewhere. No streamed audio, no book-CD rips.
 
 ---
@@ -318,7 +320,11 @@ Manifest fields added, none of them a score:
 | `after` | The node or pack that must be settled before this pack opens |
 | `book_ref` | A chapter name (pointer only) |
 | `shelf` | `path`, `beginner`, `improver`, or `players` |
-| `rights` | `pd` or `page_only` |
+| `rights` | `pd`, `licence`, `brought`, or `page_only`. `brought` is a folder on this machine, not a shipped pack |
+| `licence` | The licence, when there is one |
+| `author` | The author, when named |
+| `site` | A page to look at. The app does not fetch it |
+| `placement` | How a brought melody was moved onto this whistle |
 | `aka` | Other titles for the same air |
 
 | Order | Pack | Book place | What it asks |
@@ -341,15 +347,25 @@ may-morning-dew → book-staircase → salley-gardens → c-natural
   → as-i-roved-out → First Tones → Rolls → More ornament → Shelves
 ```
 
-ABC brought in from outside is the desk, after *The May Morning Dew* is settled. It is one folder under `teacher/`, the same phrase loop, not a library and not the first screen. A folder that does not fit this whistle, has no named source, or is page-only and still contains a tune or a wav is skipped. The door still loads. The screen says why, in one sentence. Wave 2 adds the rights check: playable on this low D, and not one of the `page_only` titles. A setting that does not fit a D whistle is refused with a reason. The Session is a way to find a later pack, by deep link, not an API inside the lesson. Someone who cannot yet play *The May Morning Dew* does not need a tune library.
+ABC or a MIDI brought in from outside is the desk, after *The May Morning Dew* is settled. It is one folder under `teacher/`, the same phrase loop, not a library and not the first screen. The folder names what is known: a public-domain source, a licence and an author, or nothing. When nothing is known, the card says the copyright is not established, and the file stays on this machine. The app does not fetch the file. A piano MIDI already names each pitch. Those pitches are moved into this whistle’s range, and the card says how far. Where two notes sound together, the higher one is kept. A note that is still not on a low D is named, and that folder is skipped. The door still loads. The screen says why, in one sentence. A `page_only` title still has no notes and no audio in the shipped packs. The Session is a way to find a later pack, by deep link, not an API inside the lesson. Someone who cannot yet play *The May Morning Dew* does not need a tune library.
 
 ---
 
 ## Rights ledger
 
-A tune ships only with a named public-domain source (O’Neill, Petrie, Joyce, or another collection old enough to say so) and a setting written for this pack. Being in the book is not a license.
+What the app ships, and what a person brings in, are not the same thing.
 
-**`page_only`** — the index can say they are in the book; the app has no notes and no audio. *Hedwig’s Theme* (John Williams) is the same rule, earlier: the node opens [letter notes in D](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html) and ships neither the melody nor audio.
+A tune in `pack/` names its source when that source is public domain (O’Neill, Petrie, Joyce, or another collection old enough to say so). When a licence or an author is known, the pack says that instead of pretending. The setting is written for this pack. Being in the book is not a licence to ship someone else’s arrangement or recording.
+
+A folder under `teacher/` is not shipped. The desk opens it after *The May Morning Dew*. It says what is known:
+
+- public domain, with the collection or the site named
+- a licence, and the author when the author is named
+- or nothing established. The card then says the copyright is not established, and the file stays on this machine
+
+The app does not download a file onto the desk. It points at a place to look, including the [Traditional Music Library song MIDIs](https://www.traditionalmusic.co.uk/song-midis/songs-midis.html). The person saves a file and puts the folder here. Words for a song already on the path are a different folder: `songs/library/`, filled only when someone runs `songs/ingest.py`. That copy stays on this machine. See [songs/README.md](songs/README.md). A piano MIDI already names each pitch. The app reads those pitches and moves the melody into this whistle’s range, and says how far it moved. A note the whistle still cannot play is named, and the folder stays shut.
+
+**`page_only`** — the index can say they are in the book; the shipped app has no notes and no audio. *Hedwig’s Theme* (John Williams) is the same rule, earlier: the node opens [letter notes in D](https://www.irish-folk-songs.com/hedwigs-theme-piano-flute-and-tin-whistle-notes.html) and ships neither the melody nor audio.
 
 - *The Lonesome Boatman* (Finbar Furey)
 - *Wissahickon Drive* (Liz Carroll)
@@ -359,7 +375,7 @@ A tune ships only with a named public-domain source (O’Neill, Petrie, Joyce, o
 - *The Man of Aran* (Daragh De Brun)
 - *12 Long Years* (Mark Bradley)
 
-**Off the shelf until a public-domain source is actually in hand:** *The Butterfly*, *The Mountain Road*.
+**Off the shipped shelf until a source is named:** *The Butterfly*, *The Mountain Road*. A person can still bring a file in on the desk.
 
 **On the page only:** *She Moved Through the Fair* — the famous setting is an arrangement.
 
@@ -378,10 +394,10 @@ Progress:
 Whistle profile:
 
 ```
-{ profile_id, label, break_hz, rms_floor, cal_as_of, reads, background, cnat_fingering }
+{ profile_id, label, break_hz, rms_floor, cal_as_of, reads, background, cnat_fingering, warmup_on_launch, lesson_packs }
 ```
 
-`label` is the nickname. `break_hz` and `rms_floor` are written when `first_sound` settles, not before the player can play. `reads` and `background` choose pictures and wording. `cnat_fingering` is written when the C-natural pack settles: which fingering held on this stick. Half-hole and a second cross-fingering wait until they disagree here. `break_hz` and `rms_floor` stay the tuning.
+`label` is the nickname. `break_hz` and `rms_floor` are written when `first_sound` settles, not before the player can play. `reads` and `background` choose pictures and wording. `warmup_on_launch` is whether the hands-and-breath pass shows the next time this profile opens the app. It defaults to showing the pass. `cnat_fingering` is written when the C-natural pack settles: which fingering held on this stick. Half-hole and a second cross-fingering wait until they disagree here. `break_hz` and `rms_floor` stay the tuning. `lesson_packs` is songs this whistle has added from packs that are already open. The path order does not change. A page-only title is not on that list.
 
 Several profiles may exist. Practice names the one in hand.
 
@@ -448,7 +464,7 @@ Shorter copy when `background` is `high_d`. Still the beginner path, because the
 | Are ornaments in the first pack? | Yes, after the player can play the first phrase. Taught as new gestures. The detector may abstain. |
 | What is the grade? | After calibration: this whistle’s break and breath, plus gesture timing. Before calibration: “is low D there.” Sit-in language. `started` / `settled` in the store. |
 | Where does it run? | On device, offline, local shell. |
-| Where do tunes come from? | One pack first. Then a chain of packs. A library is not the front door. Rights require a named public-domain source; the book is not a license. |
+| Where do tunes come from? | One pack first. Then a chain of packs. A library is not the front door. A shipped tune cites a public-domain source, or states a licence and an author. A folder on this machine can be less certain, and the card says so. The book is not a licence. |
 | Teacher? Book? | Companions. No share action and no upload in P0. Chapter labels are pointers only. |
 | Look? | Session table. A low D with the holes visible, warm wood, quiet type. The first card is the instrument, not a form. |
 

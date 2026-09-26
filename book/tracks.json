@@ -1,0 +1,388 @@
+{
+  "clips": [
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "B4",
+      "file": "004 B 1 finger Note.mp3",
+      "spans": [
+        [
+          11.59,
+          17.72
+        ],
+        [
+          36.1,
+          42.23
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "A4",
+      "file": "005 A 2 finger Note.mp3",
+      "spans": [
+        [
+          25.03,
+          31.99
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "G4",
+      "file": "006 G 3 finger Note.mp3",
+      "spans": [
+        [
+          19.27,
+          25.59
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "F#4",
+      "file": "007 F sharp 4 finger Note.mp3",
+      "spans": [
+        [
+          13.7,
+          19.71
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "E4",
+      "file": "008 E 5 finger Note.mp3",
+      "spans": [
+        [
+          10.31,
+          15.93
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "D4",
+      "file": "009 D 6 finger Note.mp3",
+      "spans": [
+        [
+          21.51,
+          38.39
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "C#5",
+      "file": "010 C sharp.mp3",
+      "spans": [
+        [
+          25.93,
+          33.4
+        ]
+      ]
+    },
+    {
+      "pack_id": "book-staircase",
+      "node_id": "book_stair",
+      "step": "D5",
+      "file": "011 D Octave 1st.mp3",
+      "spans": [
+        [
+          12.1,
+          18.36
+        ]
+      ]
+    },
+    {
+      "pack_id": "c-natural",
+      "node_id": "cnat_hold",
+      "step": "C5",
+      "file": "013 C natural 1st.mp3",
+      "spans": [
+        [
+          27.78,
+          33.72
+        ]
+      ]
+    },
+    {
+      "pack_id": "salley-gardens",
+      "node_id": "lines",
+      "step": "",
+      "file": "072 Down by the Sally Gardens.mp3",
+      "spans": [
+        [
+          13.58,
+          56.95
+        ]
+      ]
+    },
+    {
+      "pack_id": "amazing-grace",
+      "node_id": "lines",
+      "step": "",
+      "file": "029 Amazing Grace.mp3",
+      "spans": [
+        [
+          18.82,
+          54.78
+        ]
+      ]
+    },
+    {
+      "pack_id": "skye-boat-song",
+      "node_id": "lines",
+      "step": "",
+      "file": "030 Skye Boat Song.mp3",
+      "spans": [
+        [
+          9.16,
+          61.43
+        ]
+      ]
+    },
+    {
+      "pack_id": "drops-of-brandy",
+      "node_id": "lines",
+      "step": "",
+      "file": "031 Drops of Brandy D.mp3",
+      "spans": [
+        [
+          29.26,
+          89.98
+        ]
+      ]
+    },
+    {
+      "pack_id": "winster-gallop",
+      "node_id": "lines",
+      "step": "",
+      "file": "033 Winster Gallop.mp3",
+      "spans": [
+        [
+          30.6,
+          83.39
+        ]
+      ]
+    },
+    {
+      "pack_id": "green-gates",
+      "node_id": "orn_roll",
+      "step": "",
+      "file": "037 Roll on A  1.mp3",
+      "spans": [
+        [
+          6.47,
+          11.77
+        ]
+      ]
+    },
+    {
+      "pack_id": "green-gates",
+      "node_id": "lines",
+      "step": "",
+      "file": "077 The Green Gates.mp3",
+      "spans": [
+        [
+          35.08,
+          89.27
+        ],
+        [
+          89.99,
+          92.41
+        ],
+        [
+          92.74,
+          123.51
+        ],
+        [
+          123.85,
+          130.75
+        ]
+      ]
+    },
+    {
+      "pack_id": "melancholy-martin",
+      "node_id": "orn_short_roll",
+      "step": "",
+      "file": "043 Short Roll A 1.mp3",
+      "spans": [
+        [
+          0.55,
+          1.75
+        ],
+        [
+          5.05,
+          6.95
+        ]
+      ]
+    },
+    {
+      "pack_id": "melancholy-martin",
+      "node_id": "lines",
+      "step": "",
+      "file": "049 Melancholy Martin.mp3",
+      "spans": [
+        [
+          23.69,
+          91.77
+        ],
+        [
+          96.97,
+          102.27
+        ],
+        [
+          104.14,
+          109.88
+        ],
+        [
+          112.39,
+          117.37
+        ],
+        [
+          119.3,
+          124.73
+        ],
+        [
+          126.73,
+          131.71
+        ]
+      ]
+    },
+    {
+      "pack_id": "more-ornament",
+      "node_id": "orn_slide",
+      "step": "",
+      "file": "050 Slides B to A.mp3",
+      "spans": [
+        [
+          17.93,
+          23.29
+        ],
+        [
+          42.5,
+          45.69
+        ]
+      ]
+    },
+    {
+      "pack_id": "more-ornament",
+      "node_id": "orn_cran",
+      "step": "",
+      "file": "054 Cranns D1.mp3",
+      "spans": [
+        [
+          26.76,
+          31.99
+        ],
+        [
+          69.06,
+          79.29
+        ]
+      ]
+    },
+    {
+      "pack_id": "more-ornament",
+      "node_id": "orn_double_tap",
+      "step": "",
+      "file": "062 Double Tap A to G.mp3",
+      "spans": [
+        [
+          7.3,
+          10.49
+        ]
+      ]
+    },
+    {
+      "pack_id": "more-ornament",
+      "node_id": "vibrato",
+      "step": "",
+      "file": "067 Vibrato.mp3",
+      "spans": [
+        [
+          44.17,
+          61.48
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "breath_octave",
+      "step": "D5",
+      "file": "012 D Octave 2nd.mp3",
+      "spans": [
+        [
+          0.0,
+          20.3
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "orn_cut",
+      "step": "",
+      "file": "034 Rolls General Intro.mp3",
+      "spans": [
+        [
+          14.7,
+          24.15
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "orn_tap",
+      "step": "",
+      "file": "034 Rolls General Intro.mp3",
+      "spans": [
+        [
+          24.2,
+          34.4
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "orn_roll",
+      "step": "",
+      "file": "034 Rolls General Intro.mp3",
+      "spans": [
+        [
+          2.8,
+          13.45
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "orn_roll",
+      "step": "",
+      "file": "037 Roll on A  1.mp3",
+      "spans": [
+        [
+          6.47,
+          11.77
+        ]
+      ]
+    },
+    {
+      "pack_id": "may-morning-dew",
+      "node_id": "orn_roll",
+      "step": "",
+      "file": "038 Roll on A 2.mp3",
+      "spans": [
+        [
+          4.85,
+          10.65
+        ]
+      ]
+    }
+  ]
+}

@@ -11,7 +11,7 @@
       "id": "lines",
       "mode": "phrase",
       "title": "Down by the Salley Gardens",
-      "body": "Hear the line. The words are a memory of it, after you have heard it. A cut only where it is marked. Singing is offered. Nothing here grades a song.",
+      "body": "Hear the line. If you know the song, hum it first and let the whistle match what you sang. The words are a memory of it, after you have heard it. A cut only where it is marked. Singing is offered. Nothing here grades a song.",
       "high_d_body": "",
       "gesture": "",
       "note": "",
@@ -20,7 +20,7 @@
     }
   ],
   "pages": {},
-  "content_hash": "4ad75bf77bfa42fb36eabc3503763b8acd4749d57d9ca309846a09ead1bc20b3",
+  "content_hash": "bdcff03ddb3bf8ab7d1a3c5377f55792267672c99bdd549fcfb3bd767048eafd",
   "wave": 2,
   "after": "book-staircase",
   "book_ref": "Terrific Tones",
@@ -31,6 +31,10 @@
     "The Maids of the Mourne Shore"
   ],
   "source": "Traditional air The Mourne Shore, Francis O’Neill, O’Neill’s Music of Ireland (1903), no. 49. Also The Maids of the Mourne Shore in the Petrie collection. Words: W. B. Yeats, Down by the Salley Gardens (1889). Setting written for this pack, in D.",
+  "licence": "",
+  "author": "",
+  "site": "",
+  "placement": "",
   "session": "https://thesession.org/tunes/search?q=Mourne+Shore",
   "pulse": "",
   "pulse_beats": 0,

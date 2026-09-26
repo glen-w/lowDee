@@ -2,21 +2,24 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import abcjs from "abcjs";
 import { appendNameRows, pictureModel, renderPicture, showSolfege, solfegeFor } from "./picture";
-import { noteHz, ornamentEvents, phraseEvents, playTones, type ToneEvent, type ToneHandle } from "./tones";
+import { noteHz, ornamentEvents, phraseEvents, playTones, songToneEvents, type ToneEvent, type ToneHandle } from "./tones";
 import { aboutHtml } from "./about";
 import {
   NODE_COPY,
   remarkFor,
   type AppStore,
   type Background,
+  type BookClip,
   type CatalogView,
   type Evidence,
   type ListenState,
   type Pack,
   type PackNode,
   type Reads,
+  type SongSheet,
   type WhistleProfile,
 } from "./types";
+import { lyricsPanelHtml, melodyEvents, previewSheet } from "./lyrics";
 import {
   WARMUP,
   exerciseIds,
@@ -31,15 +34,22 @@ import {
 import { glossaryCountLabel, glossaryListHtml, glossaryShellHtml } from "./glossary";
 import { ghostMarkup, type GhostTrace } from "./ghost";
 import { CNAT_ALT, withAltC } from "./cnat";
-import { deskHtml } from "./desk";
+import { deskHtml, rightsHtml } from "./desk";
 import {
   PATH_NOTE,
+  advanceMove,
+  joinedSong,
+  lessonSetHtml,
+  menuKindFor,
   practiceNavHtml,
   primaryHears,
   resumeIndex as firstUnsettledIndex,
   reviewCell,
   stepNavHtml,
   stepsForNode,
+  type AdvanceMove,
+  type AutoAdvance,
+  type SectionPlace,
   type StepChoice,
 } from "./path";
 import "./styles.css";
@@ -55,6 +65,7 @@ interface FrameDto {
   phrase_index: number;
   hold_ratio: number;
   leak_hole: number | null;
+  stopped?: boolean;
 }
 
 class App {
@@ -70,6 +81,9 @@ class App {
   playedPhrase = false;
   modelHeard = false;
   refReady: boolean | null = null;
+  bookClips: BookClip[] = [];
+  bookReady: boolean | null = null;
+  bookDone: (() => void) | null = null;
   hearKind: "model" | "take" = "model";
   reviewing = false;
   reviewDone = false;
@@ -97,15 +111,23 @@ class App {
   beatElapsed = 0;
   warmTimer: number | null = null;
   warmView: "intro" | "run" | "done" | null = null;
-  page: "sitting" | "glossary" | "shelf" | "about" | "desk" = "sitting";
+  page: "sitting" | "glossary" | "shelf" | "about" | "desk" | "settings" = "sitting";
   catalog: CatalogView = { shelf_open: false, desk_open: false, packs: [], desk: [], refused: [] };
   ghost: GhostTrace | null = null;
   warmWhistle = false;
   cnatAlt = false;
   recalibrating = false;
   hideWords = false;
+  sheet: SongSheet | null = null;
+  lyricsOpen = false;
+  lyricTones: ToneHandle | null = null;
+  lyricGen = 0;
   glossaryQuery = "";
   glossaryPausedWarm = false;
+  settingsPausedWarm = false;
+  finishing = false;
+  advanceTimer: number | null = null;
+  advanceGen = 0;
 
   get nodeId(): string {
     return this.pack.manifest.node_ids[this.nodeIndex] ?? "first_sound";
@@ -141,6 +163,14 @@ class App {
       this.render();
       return;
     }
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has("lyrics")) {
+      await this.mountLyricsPreview();
+      return;
+    }
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has("sitting")) {
+      await this.mountSittingPreview();
+      return;
+    }
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     if (this.store.active_profile_id) {
@@ -150,6 +180,86 @@ class App {
     }
     await this.openPack(this.resumePackId(), false);
     this.nodeIndex = this.resumeIndex();
+    if (this.profile && !this.warmupOnLaunch()) {
+      this.warmed = true;
+      this.beginReview();
+    }
+    this.render();
+  }
+
+  async mountSittingPreview(): Promise<void> {
+    const [manifest, phrases, fingering, ornaments, remarks] = await Promise.all([
+      import("../pack/may-morning-dew/manifest.json"),
+      import("../pack/may-morning-dew/phrases.json"),
+      import("../pack/may-morning-dew/fingering-low-d.json"),
+      import("../pack/may-morning-dew/ornaments.json"),
+      import("../pack/may-morning-dew/remarks.json"),
+    ]);
+    this.profile = {
+      profile_id: "preview",
+      label: "this horn",
+      break_hz: 291.2,
+      rms_floor: 0.02,
+      cal_as_of: "",
+      reads: "some",
+      background: "none",
+    };
+    this.store = {
+      profiles: [this.profile],
+      active_profile_id: "preview",
+      progress: [],
+    };
+    this.catalog = { shelf_open: false, desk_open: false, packs: [], desk: [], refused: [] };
+    this.pack = {
+      manifest: manifest.default,
+      phrases: phrases.default,
+      fingering: fingering.default,
+      ornaments: ornaments.default,
+      remarks: remarks.default,
+      tune_abc: "",
+    };
+    this.warmed = true;
+    this.page = "sitting";
+    this.render();
+  }
+
+  async mountLyricsPreview(): Promise<void> {
+    const [manifest, phrases, fingering, ornaments, remarks, words] = await Promise.all([
+      import("../pack/salley-gardens/manifest.json"),
+      import("../pack/salley-gardens/phrases.json"),
+      import("../pack/salley-gardens/fingering-low-d.json"),
+      import("../pack/salley-gardens/ornaments.json"),
+      import("../pack/salley-gardens/remarks.json"),
+      import("../pack/salley-gardens/words.json"),
+    ]);
+    this.profile = {
+      profile_id: "preview",
+      label: "this horn",
+      break_hz: 291.2,
+      rms_floor: 0.02,
+      cal_as_of: "",
+      reads: "some",
+      background: "none",
+    };
+    this.store = {
+      profiles: [this.profile],
+      active_profile_id: "preview",
+      progress: [],
+    };
+    this.catalog = { shelf_open: false, desk_open: false, packs: [], desk: [], refused: [] };
+    this.pack = {
+      manifest: manifest.default,
+      phrases: phrases.default,
+      fingering: fingering.default,
+      ornaments: ornaments.default,
+      remarks: remarks.default,
+      tune_abc: "",
+      words: words.default,
+    };
+    this.sheet = previewSheet();
+    this.heardPhrase = true;
+    this.warmed = true;
+    this.page = "sitting";
     this.render();
   }
 
@@ -158,7 +268,41 @@ class App {
     return open.find((p) => !p.settled)?.id ?? open.at(-1)?.id ?? "may-morning-dew";
   }
 
+  async saveLessonPacks(ids: string[]): Promise<void> {
+    if (!this.profile) return;
+    if (this.profile.profile_id === "preview") {
+      this.profile.lesson_packs = ids;
+      this.render();
+      return;
+    }
+    const profile = await invoke<WhistleProfile>("set_lesson_packs", {
+      profileId: this.profile.profile_id,
+      packIds: ids,
+    });
+    this.profile = profile;
+    if (this.store) {
+      const index = this.store.profiles.findIndex((p) => p.profile_id === profile.profile_id);
+      if (index >= 0) this.store.profiles[index] = profile;
+    }
+    this.render();
+  }
+
+  async addLessonPack(): Promise<void> {
+    const select = document.querySelector("#lesson-add") as HTMLSelectElement | null;
+    const id = select?.value;
+    if (!id || !this.profile) return;
+    const saved = this.profile.lesson_packs ?? [];
+    if (saved.includes(id)) return;
+    await this.saveLessonPacks([...saved, id]);
+  }
+
+  async removeLessonPack(id: string): Promise<void> {
+    if (!this.profile) return;
+    await this.saveLessonPacks((this.profile.lesson_packs ?? []).filter((pack) => pack !== id));
+  }
+
   async openPack(id: string, renderAfter = true): Promise<void> {
+    this.cancelAdvance();
     await invoke("open_pack", { packId: id });
     this.pack = await invoke<Pack>("get_pack");
     this.catalog = await invoke<CatalogView>("get_catalog");
@@ -182,6 +326,7 @@ class App {
     this.cnatAlt = false;
     this.recalibrating = false;
     this.page = "sitting";
+    await this.loadSheet();
     if (this.warmed) this.beginReview();
     if (renderAfter) this.render();
   }
@@ -227,6 +372,11 @@ class App {
       this.bindDesk();
       return;
     }
+    if (this.page === "settings") {
+      root.innerHTML = this.settingsHtml();
+      this.bindSettings();
+      return;
+    }
     if (!this.profile) {
       root.innerHTML = this.objectCardHtml();
       this.bindObjectCard();
@@ -266,6 +416,7 @@ class App {
 
   bindWarm(view: "intro" | "run" | "done"): void {
     this.bindGlossaryOpen();
+    this.bindSettingsOpen();
     if (view === "intro") {
       document.querySelector("#warm-begin")?.addEventListener("click", () => this.beginWarm());
       document.querySelector("#warm-skip")?.addEventListener("click", () => this.skipWarmup());
@@ -405,7 +556,7 @@ class App {
       modes,
       progress: this.ownedProgress(),
       stairCount: this.pack.phrases.staircase_notes.length,
-      phraseCount: this.pack.phrases.chunks.length,
+      phraseCount: this.phraseReviewCount(),
     });
     if (!cell) {
       this.reviewDone = true;
@@ -417,7 +568,7 @@ class App {
     if (this.isStair()) this.stairIndex = cell.stepIndex;
     else if (this.mode() === "breath_octave") this.wantOctave = false;
     else if (this.isPhraseNode()) {
-      const last = Math.max(0, this.pack.phrases.chunks.length - 1);
+      const last = Math.max(0, this.stepChoices().length - 1);
       this.phraseIndex = Math.min(cell.stepIndex, last);
     }
     this.modelHeard = false;
@@ -469,6 +620,7 @@ class App {
   }
 
   openGlossary(): void {
+    this.cancelAdvance();
     this.glossaryPausedWarm = false;
     if (this.warmStarted && !this.warmed && !this.warmPaused) {
       this.toggleWarmPause();
@@ -489,6 +641,72 @@ class App {
     this.warmView = null;
     if (resumeWarm && this.warmPaused) this.toggleWarmPause();
     this.render();
+  }
+
+  bindSettingsOpen(): void {
+    document.querySelector("#settings-open")?.addEventListener("click", () => this.openSettings());
+  }
+
+  openSettings(): void {
+    if (!this.profile) return;
+    this.cancelAdvance();
+    this.settingsPausedWarm = false;
+    if (this.warmStarted && !this.warmed && !this.warmPaused) {
+      this.toggleWarmPause();
+      this.settingsPausedWarm = true;
+    }
+    this.page = "settings";
+    this.render();
+  }
+
+  closeSettings(): void {
+    const resumeWarm = this.settingsPausedWarm;
+    this.settingsPausedWarm = false;
+    this.page = "sitting";
+    this.warmView = null;
+    if (resumeWarm && this.warmPaused) this.toggleWarmPause();
+    this.render();
+  }
+
+  bindSettings(): void {
+    document.querySelector("#settings-back")?.addEventListener("click", () => this.closeSettings());
+    document.querySelector("#reads")?.addEventListener("change", (event) => {
+      void this.saveAnswers(
+        (event.target as HTMLSelectElement).value,
+        this.profile?.background ?? "none",
+      );
+    });
+    document.querySelector("#background")?.addEventListener("change", (event) => {
+      void this.saveAnswers(
+        this.profile?.reads ?? "no",
+        (event.target as HTMLSelectElement).value,
+      );
+    });
+    document.querySelector("#skip-talk")?.addEventListener("change", (event) => {
+      const skip = (event.target as HTMLSelectElement).value === "yes";
+      void this.saveAnswers(this.profile?.reads ?? "no", this.profile?.background ?? "none", skip);
+    });
+    document.querySelector("#warmup-launch")?.addEventListener("change", (event) => {
+      const show = (event.target as HTMLSelectElement).value === "yes";
+      void this.saveAnswers(
+        this.profile?.reads ?? "no",
+        this.profile?.background ?? "none",
+        this.skipBookTalk(),
+        show,
+      );
+    });
+    document.querySelector("#auto-advance")?.addEventListener("change", (event) => {
+      void this.saveAnswers(
+        this.profile?.reads ?? "no",
+        this.profile?.background ?? "none",
+        this.skipBookTalk(),
+        this.warmupOnLaunch(),
+        (event.target as HTMLSelectElement).value,
+      );
+    });
+    document.querySelector("#recal")?.addEventListener("click", () => {
+      void this.onRecalibrate();
+    });
   }
 
   paintGlossary(): void {
@@ -542,20 +760,11 @@ class App {
           </div>
           <div class="field">
             <label for="reads">Do you read music?</label>
-            <select id="reads">
-              <option value="no">No</option>
-              <option value="some">A little</option>
-              <option value="yes">Yes</option>
-            </select>
+            <select id="reads">${optionList(READS, "no")}</select>
           </div>
           <div class="field">
             <label for="background">Musical background</label>
-            <select id="background">
-              <option value="none">New to music</option>
-              <option value="wind">Wind instrument (flute, recorder, …)</option>
-              <option value="other">Other instrument or singer</option>
-              <option value="high_d">Already play high D whistle</option>
-            </select>
+            <select id="background">${optionList(BACKGROUND, "none")}</select>
           </div>
           <div class="row">
             <button class="primary" id="begin">Hands and breath</button>
@@ -594,8 +803,9 @@ class App {
     const copy = node
       ? { title: node.title, body: node.body, body_high_d: node.high_d_body || undefined }
       : fallback;
-    const body =
-      this.profile?.background === "high_d" && copy.body_high_d
+    const body = this.wholeSong()
+      ? "The whole song. Hear it through, then play it from the first note."
+      : this.profile?.background === "high_d" && copy.body_high_d
         ? copy.body_high_d
         : copy.body;
     const titles = Object.fromEntries(
@@ -604,11 +814,32 @@ class App {
         this.pack.manifest.nodes?.find((n) => n.id === id)?.title ?? NODE_COPY[id]?.title ?? id,
       ]),
     );
+    const kinds = Object.fromEntries(
+      this.pack.manifest.node_ids.map((id) => {
+        const node = this.pack.manifest.nodes?.find((n) => n.id === id);
+        const title = titles[id] ?? id;
+        return [
+          id,
+          menuKindFor({
+            id,
+            mode: node?.mode,
+            title,
+            packTitle: this.pack.manifest.title,
+          }),
+        ];
+      }),
+    );
     const nodes = practiceNavHtml({
       nodeIds: this.pack.manifest.node_ids,
       titles,
+      kinds,
       current: this.nodeIndex,
       progress: this.ownedProgress(),
+    });
+    const lessons = lessonSetHtml({
+      packs: this.catalog.packs,
+      savedIds: this.profile?.lesson_packs ?? [],
+      currentId: this.pack.manifest.id,
     });
 
     const page = this.isPage();
@@ -624,14 +855,17 @@ class App {
             ${this.catalog.desk_open ? `<button type="button" class="ghost" id="desk-open">A tune on the table</button>` : ""}
             ${this.onTheDesk() ? `<button type="button" class="ghost" id="path-back">The path</button>` : ""}
             ${this.catalog.shelf_open ? `<button type="button" class="ghost" id="shelf-open">Shelf</button>` : ""}
+            <button type="button" class="ghost" id="settings-open">Settings</button>
             <button type="button" class="ghost" id="about-open">This tube</button>
             <button type="button" class="ghost" id="glossary-open">Glossary</button>
           </span>
         </div>
         ${nodes}
+        ${lessons}
         <p class="meta path-note">${PATH_NOTE}</p>
         <h1>${copy.title}</h1>
         <p class="lede">${body}</p>
+        ${this.onTheDesk() ? rightsHtml(this.pack.manifest, false) : ""}
         ${this.reviewing ? `<p class="meta">A review. Play the one you already have.</p>` : ""}
         <div class="card">
           ${stepNavHtml(this.stepChoices(), this.stepIndex())}
@@ -668,10 +902,21 @@ class App {
             <button class="ghost" id="step-btn">Couldn’t hear — continue</button>
             ${node?.hide_pictures ? `<button class="ghost" id="hide-btn">${this.hidePictures ? "Show pictures" : "Hide pictures"}</button>` : ""}
             ${words ? `<button class="ghost" id="words-btn">${this.hideWords ? "Show words" : "Hide words"}</button>` : ""}
+            ${this.sheet && this.isPhraseNode() ? `<button class="ghost" id="lyrics-btn">${this.lyricsOpen ? "Hide lyrics" : "Lyrics"}</button>` : ""}
           </div>
-          ${this.answerRow()}
+          ${
+            this.lyricsOpen && this.sheet && this.isPhraseNode()
+              ? lyricsPanelHtml({
+                  sheet: this.sheet,
+                  revealed: this.heardPhrase || this.playedPhrase,
+                  currentLine: words,
+                  playing: this.lyricTones != null,
+                })
+              : ""
+          }
           ${next && this.packSettled() ? `<div class="row"><button class="primary" id="next-pack">Next: ${escapeHtml(next.title)}</button></div>` : ""}
           <p class="meta" id="tone-note" hidden>Hear plays the notes. A recording replaces them when one is here.</p>
+          <p class="meta" id="book-note"${this.bookClips.length ? "" : " hidden"}>Hear plays the book’s recording${this.bookClips.length > 1 ? "s" : ""}. Skip the talk is in settings.</p>
           <p class="meta" style="margin-top:1rem">Use headphones so the app doesn’t hear itself.</p>`
           }
         </div>
@@ -690,30 +935,52 @@ class App {
     return line;
   }
 
-  answerRow(): string {
-    if (!this.profile || this.listenState === "sounding" || this.listenState === "wait") return "";
-    const reads = this.profile.reads;
-    const background = this.profile.background;
-    const opt = (value: string, label: string, current: string) =>
-      `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
+  settingsHtml(): string {
+    if (!this.profile) return "";
     const recal =
-      this.isCalibrated()
-        ? `<button type="button" class="ghost" id="recal">Recalibrate</button>`
+      this.warmed && this.isCalibrated()
+        ? `<p class="meta">Hold low D again when this whistle has warmed. A note already open keeps the target it started with.</p>
+          <div class="row"><button type="button" class="ghost" id="recal">Recalibrate</button></div>`
         : "";
-    return `<div class="row answers">
-      <label>Reading <select id="reads" aria-label="Reading">
-        ${opt("no", "No", reads)}
-        ${opt("some", "A little", reads)}
-        ${opt("yes", "Yes", reads)}
-      </select></label>
-      <label>Background <select id="background" aria-label="Background">
-        ${opt("none", "New to music", background)}
-        ${opt("wind", "Wind", background)}
-        ${opt("other", "Other", background)}
-        ${opt("high_d", "High D", background)}
-      </select></label>
-      ${recal}
-    </div>`;
+    return `
+      <div class="app-shell">
+        <div class="topbar">
+          <p class="eyebrow">Settings</p>
+          <button type="button" class="ghost" id="settings-back">Back</button>
+        </div>
+        <h1>You</h1>
+        <p class="lede">Reading and background change the pictures and the words. The notes, and the order, stay the same.</p>
+        <div class="card">
+          <div class="field">
+            <label for="reads">Do you read music?</label>
+            <select id="reads">${optionList(READS, this.profile.reads)}</select>
+          </div>
+          <div class="field">
+            <label for="background">Musical background</label>
+            <select id="background">${optionList(BACKGROUND, this.profile.background)}</select>
+          </div>
+          <div class="field">
+            <label for="skip-talk">The book’s recording</label>
+            <select id="skip-talk">
+              <option value="yes"${this.skipBookTalk() ? " selected" : ""}>Skip the talk</option>
+              <option value="no"${this.skipBookTalk() ? "" : " selected"}>Play the talk too</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="warmup-launch">Hands and breath</label>
+            <select id="warmup-launch">
+              <option value="yes"${this.warmupOnLaunch() ? " selected" : ""}>Show on launch</option>
+              <option value="no"${this.warmupOnLaunch() ? "" : " selected"}>Skip on launch</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="auto-advance">After a section</label>
+            <select id="auto-advance">${optionList(AUTO_ADVANCE, this.autoAdvance())}</select>
+          </div>
+          <p class="meta">Skip the talk starts at the part this step uses. Play the talk too hears the file from the start. After a section, the next note or phrase in this part can start on its own. Keep going opens the next part too. A page stops that. A miss stays.</p>
+          ${recal}
+        </div>
+      </div>`;
   }
 
   onTheDesk(): boolean {
@@ -748,8 +1015,11 @@ class App {
 
   primaryHearsNow(): boolean {
     if (this.isolating || this.isPage()) return false;
+    const hasModel =
+      this.bookReady === true ||
+      (this.refReady !== false && (this.wholeSong() || !!this.refPath()));
     return primaryHears({
-      hasRef: this.refReady !== false && !!this.refPath(),
+      hasRef: hasModel,
       heard: this.modelHeard,
       playing: this.hearAudio != null && this.hearKind === "model",
       inAttempt:
@@ -771,6 +1041,7 @@ class App {
       return this.pack.phrases.on_the_breath.notes[0] ?? "D4";
     }
     if (this.isPhraseNode()) {
+      if (this.wholeSong()) return this.pack.phrases.chunks[0]?.notes[0] ?? "D4";
       return this.pack.phrases.chunks[this.phraseIndex]?.notes[0] ?? "D4";
     }
     if (this.isOrnament()) {
@@ -808,6 +1079,46 @@ class App {
     );
   }
 
+  isSongNode(): boolean {
+    const title = this.node()?.title ?? NODE_COPY[this.nodeId]?.title ?? this.nodeId;
+    return (
+      menuKindFor({
+        id: this.nodeId,
+        mode: this.mode(),
+        title,
+        packTitle: this.pack.manifest.title,
+      }) === "song"
+    );
+  }
+
+  wholeSong(): boolean {
+    const count = this.pack?.phrases.chunks.length ?? 0;
+    return this.isPhraseNode() && this.isSongNode() && count > 1 && this.phraseIndex >= count;
+  }
+
+  phraseReviewCount(): number {
+    let count = this.pack.phrases.chunks.length;
+    for (const node of this.pack.manifest.nodes ?? []) {
+      if (node.mode !== "phrase") continue;
+      const steps = stepsForNode({
+        nodeId: node.id,
+        mode: node.mode,
+        staircaseNotes: [],
+        noteLabel: (note) => note,
+        chunkLabels: this.pack.phrases.chunks.map((chunk) => chunk.label),
+        song:
+          menuKindFor({
+            id: node.id,
+            mode: node.mode,
+            title: node.title,
+            packTitle: this.pack.manifest.title,
+          }) === "song",
+      }).length;
+      count = Math.max(count, steps);
+    }
+    return count;
+  }
+
   isOrnament(): boolean {
     return this.mode() === "ornament" || this.nodeId.startsWith("orn_");
   }
@@ -838,6 +1149,10 @@ class App {
       return this.pack.phrases.on_the_breath.notes;
     }
     if (this.isPhraseNode()) {
+      if (this.wholeSong()) {
+        const notes = this.pack.phrases.chunks.flatMap((chunk) => chunk.notes);
+        return notes.length ? notes : ["D4"];
+      }
       return this.pack.phrases.chunks[this.phraseIndex]?.notes ?? ["D4"];
     }
     return [this.currentNote()];
@@ -853,22 +1168,19 @@ class App {
       return marks;
     }
     if (!this.isPhraseNode() || !this.node()?.grade_marks) return marks;
-    const chunk = this.pack.phrases.chunks[this.phraseIndex];
-    if (!chunk) return marks;
-    for (const mark of this.pack.ornaments.marks) {
-      if (mark.chunk_id === chunk.id && mark.note_index < marks.length) {
-        marks[mark.note_index] = mark.gesture.replaceAll("_", " ");
-      }
+    for (const mark of this.songMarks()) {
+      if (mark.note_index < marks.length) marks[mark.note_index] = mark.gesture.replaceAll("_", " ");
     }
     return marks;
   }
 
-  gradedMarks(): Array<{ note_index: number; gesture: string }> {
-    if (!this.node()?.grade_marks) return [];
-    const chunk = this.pack.phrases.chunks[this.phraseIndex];
-    if (!chunk) return [];
-    return this.pack.ornaments.marks.filter((mark) => {
-      if (mark.chunk_id !== chunk.id) return false;
+  songMarks(): Array<{ note_index: number; gesture: string }> {
+    const placed = this.wholeSong()
+      ? joinedSong(this.pack.phrases.chunks, this.pack.ornaments.marks).marks
+      : this.pack.ornaments.marks
+          .filter((mark) => mark.chunk_id === this.pack.phrases.chunks[this.phraseIndex]?.id)
+          .map((mark) => ({ note_index: mark.note_index, gesture: mark.gesture }));
+    return placed.filter((mark) => {
       if (
         mark.gesture === "cut" &&
         this.pack.manifest.id !== "may-morning-dew" &&
@@ -880,10 +1192,19 @@ class App {
     });
   }
 
+  gradedMarks(): Array<{ note_index: number; gesture: string }> {
+    if (!this.node()?.grade_marks) return [];
+    return this.songMarks();
+  }
+
   wordLine(): string | null {
-    const chunk = this.pack?.phrases.chunks[this.phraseIndex];
-    if (!chunk) return null;
-    return this.pack.words?.lines.find((line) => line.chunk_id === chunk.id)?.text ?? null;
+    const chunks = this.wholeSong()
+      ? this.pack.phrases.chunks
+      : [this.pack?.phrases.chunks[this.phraseIndex]].filter((chunk) => chunk != null);
+    const lines = chunks
+      .map((chunk) => this.pack.words?.lines.find((line) => line.chunk_id === chunk.id)?.text)
+      .filter((text): text is string => !!text);
+    return lines.length ? lines.join("\n") : null;
   }
 
   packSettled(): boolean {
@@ -986,6 +1307,7 @@ class App {
     const key = this.pack.phrases.key || "D";
     let abc = `X:1\nM:${meter}\nL:1/8\nK:${key}\n`;
     if (this.mode() === "on_the_breath") abc += this.pack.phrases.on_the_breath.abc;
+    else if (this.wholeSong()) abc += joinedSong(this.pack.phrases.chunks).abc || "D3";
     else abc += this.pack.phrases.chunks[this.phraseIndex]?.abc ?? "D3";
     el.innerHTML = "";
     abcjs.renderAbc(el, abc, { responsive: "resize", staffwidth: 480 });
@@ -1002,12 +1324,20 @@ class App {
   }
 
   stepChoices(): StepChoice[] {
+    const title = this.node()?.title ?? NODE_COPY[this.nodeId]?.title ?? this.nodeId;
     return stepsForNode({
       nodeId: this.nodeId,
       mode: this.mode(),
       staircaseNotes: this.pack.phrases.staircase_notes,
       noteLabel: (note) => this.pack.fingering.notes[note]?.label ?? note,
       chunkLabels: this.pack.phrases.chunks.map((chunk) => chunk.label),
+      song:
+        menuKindFor({
+          id: this.nodeId,
+          mode: this.mode(),
+          title,
+          packTitle: this.pack.manifest.title,
+        }) === "song",
     });
   }
 
@@ -1020,29 +1350,24 @@ class App {
 
   bindPractice(): void {
     this.bindGlossaryOpen();
+    this.bindSettingsOpen();
     document.querySelector("#about-open")?.addEventListener("click", () => {
+      this.cancelAdvance();
       this.page = "about";
       this.render();
     });
     document.querySelector("#shelf-open")?.addEventListener("click", () => {
+      this.cancelAdvance();
       this.page = "shelf";
       this.render();
     });
     document.querySelector("#desk-open")?.addEventListener("click", () => {
+      this.cancelAdvance();
       this.page = "desk";
       this.render();
     });
     document.querySelector("#path-back")?.addEventListener("click", () => {
       void this.openPack(this.resumePackId());
-    });
-    document.querySelector("#reads")?.addEventListener("change", (event) => {
-      void this.saveAnswers((event.target as HTMLSelectElement).value, this.profile?.background ?? "none");
-    });
-    document.querySelector("#background")?.addEventListener("change", (event) => {
-      void this.saveAnswers(this.profile?.reads ?? "no", (event.target as HTMLSelectElement).value);
-    });
-    document.querySelector("#recal")?.addEventListener("click", () => {
-      void this.onRecalibrate();
     });
     document.querySelector("#another-horn")?.addEventListener("click", () => {
       this.profile = null;
@@ -1055,10 +1380,43 @@ class App {
       const next = this.nextPack();
       if (next) void this.openPack(next.id);
     });
+    document.querySelector("#lesson-add")?.addEventListener("change", (event) => {
+      const select = event.target as HTMLSelectElement;
+      const source = select.selectedOptions[0]?.dataset.source ?? "";
+      const line = document.querySelector("#lesson-source");
+      if (line) line.textContent = source;
+    });
+    document.querySelector("#lesson-add-btn")?.addEventListener("click", () => {
+      void this.addLessonPack();
+    });
+    document.querySelectorAll<HTMLButtonElement>("[data-lesson-pack]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.lessonPack;
+        if (id && id !== this.pack.manifest.id) void this.openPack(id);
+      });
+    });
+    document.querySelectorAll<HTMLButtonElement>("[data-lesson-off]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.lessonOff;
+        if (id) void this.removeLessonPack(id);
+      });
+    });
     document.querySelector("#pulse-btn")?.addEventListener("click", () => this.playPulse());
     document.querySelector("#words-btn")?.addEventListener("click", () => {
       this.hideWords = !this.hideWords;
       this.render();
+    });
+    document.querySelector("#lyrics-btn")?.addEventListener("click", () => {
+      this.lyricsOpen = !this.lyricsOpen;
+      if (!this.lyricsOpen) this.stopLyric();
+      this.render();
+    });
+    document.querySelector("#lyrics-hear")?.addEventListener("click", () => void this.playLyricMelody());
+    document.querySelector("#lyrics-source")?.addEventListener("click", () => {
+      void this.openLyricPage(this.sheet?.source_url);
+    });
+    document.querySelector("#lyrics-also")?.addEventListener("click", () => {
+      void this.openLyricPage(this.sheet?.also_url);
     });
     document.querySelectorAll<HTMLButtonElement>("[data-node-index]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1088,6 +1446,7 @@ class App {
   }
 
   async leaveAttempt(): Promise<void> {
+    this.cancelAdvance();
     this.hearToken += 1;
     this.stopHear();
     this.stopPoll();
@@ -1124,6 +1483,8 @@ class App {
     this.playedPhrase = false;
     this.modelHeard = false;
     this.refReady = null;
+    this.bookClips = [];
+    this.bookReady = null;
     this.isolating = false;
     this.isolateNote = null;
     this.hasTake = false;
@@ -1148,6 +1509,8 @@ class App {
     this.playedPhrase = false;
     this.modelHeard = false;
     this.refReady = null;
+    this.bookClips = [];
+    this.bookReady = null;
     this.isolating = false;
     this.isolateNote = null;
     this.hasTake = false;
@@ -1170,21 +1533,37 @@ class App {
     btn.textContent = "Hear";
     const rel = this.refPath();
     let wav = false;
-    if (rel) {
+    if (this.wholeSong()) {
+      wav = (await this.wholeWavs()) != null;
+    } else if (rel) {
       try {
         wav = await invoke<boolean>("ref_available", { relative: rel });
       } catch {
         wav = false;
       }
     }
-    const tones = !wav && this.toneEvents() != null;
-    const changed = this.refReady !== wav;
+    let book: BookClip[] = [];
+    try {
+      book = await this.lookupBook();
+    } catch {
+      book = [];
+    }
+    const tones = !wav && book.length === 0 && this.toneEvents() != null;
+    const bookFile = book.map((clip) => clip.file).join("\n");
+    const changed = this.refReady !== wav || this.bookClips.map((clip) => clip.file).join("\n") !== bookFile;
     this.refReady = wav;
+    this.bookClips = book;
+    this.bookReady = book.length > 0;
     this.toneGuide = tones;
     const gate = this.primaryHearsNow() && !playing;
-    btn.hidden = gate || (!wav && !tones);
-    if (slow) slow.hidden = (!wav && !tones) || this.isOrnament();
+    btn.hidden = gate || (!wav && book.length === 0 && !tones);
+    if (slow) slow.hidden = (!wav && book.length === 0 && !tones) || this.isOrnament();
     if (note) note.hidden = !tones;
+    const bookNote = document.querySelector("#book-note") as HTMLElement | null;
+    if (bookNote) {
+      bookNote.hidden = book.length === 0;
+      bookNote.textContent = `Hear plays the book’s recording${book.length > 1 ? "s" : ""}. Skip the talk is in settings.`;
+    }
     if (changed && this.listenState === "idle" && !playing) this.render();
   }
 
@@ -1203,6 +1582,9 @@ class App {
     if (this.mode() === "on_the_breath") {
       abc = this.pack.phrases.on_the_breath.abc;
       notes = this.pack.phrases.on_the_breath.notes;
+    } else if (this.wholeSong()) {
+      const events = songToneEvents(this.pack.phrases.chunks, base);
+      return events.some((event) => event.hz > 0) ? events : null;
     } else if (this.isPhraseNode()) {
       const chunk = this.pack.phrases.chunks[this.phraseIndex];
       abc = chunk?.abc ?? "";
@@ -1219,6 +1601,7 @@ class App {
       return `ref/${this.currentNote()}.wav`;
     }
     if (mode === "on_the_breath") return this.pack.phrases.on_the_breath.ref || null;
+    if (this.wholeSong()) return null;
     if (this.isPhraseNode()) return this.pack.phrases.chunks[this.phraseIndex]?.ref ?? null;
     if (this.isOrnament()) {
       const gesture = this.node()?.gesture || "cut";
@@ -1227,14 +1610,83 @@ class App {
     return null;
   }
 
+  async loadSheet(): Promise<void> {
+    this.stopLyric();
+    this.sheet = null;
+    this.lyricsOpen = false;
+    try {
+      this.sheet = await invoke<SongSheet | null>("song_sheet", {
+        packId: this.pack.manifest.id,
+        title: this.pack.manifest.title,
+        aka: this.pack.manifest.aka ?? [],
+      });
+    } catch {
+      this.sheet = null;
+    }
+  }
+
+  stopLyric(): void {
+    this.lyricGen += 1;
+    const tones = this.lyricTones;
+    this.lyricTones = null;
+    if (!tones) return;
+    tones.stop();
+    if (!this.hearAudio && !this.hearTones && this.listenState !== "sounding" && this.listenState !== "wait") {
+      void invoke("set_grading", { enabled: true }).catch(() => undefined);
+    }
+  }
+
+  async playLyricMelody(): Promise<void> {
+    if (this.lyricTones) {
+      this.stopLyric();
+      this.render();
+      return;
+    }
+    if (!this.sheet?.playable) return;
+    if (this.listenState === "sounding" || this.listenState === "wait") return;
+    if (this.hearAudio || this.hearTones) return;
+    const events = melodyEvents(this.sheet.melody, this.profile?.break_hz || 293.66);
+    if (!events.some((event) => event.hz > 0)) return;
+    this.lyricGen += 1;
+    const gen = this.lyricGen;
+    try {
+      await invoke("set_grading", { enabled: false });
+    } catch {
+      /* preview has no microphone */
+    }
+    this.lyricTones = playTones(events, 1, () => {
+      if (gen !== this.lyricGen) return;
+      this.lyricTones = null;
+      void invoke("set_grading", { enabled: true }).catch(() => undefined);
+      this.render();
+    });
+    this.render();
+  }
+
+  async openLyricPage(url: string | undefined): Promise<void> {
+    if (!url) return;
+    try {
+      await openUrl(url);
+    } catch {
+      this.remark = "Couldn’t open the source page.";
+      const el = document.querySelector("#remark");
+      if (el) el.textContent = this.remark;
+    }
+  }
+
   stopHear(): void {
+    this.stopLyric();
     const tones = this.hearTones;
     this.hearTones = null;
     tones?.stop();
+    const done = this.bookDone;
+    this.bookDone = null;
+    done?.();
     const audio = this.hearAudio;
     this.hearAudio = null;
     if (audio) {
       audio.onended = null;
+      audio.ontimeupdate = null;
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
@@ -1255,6 +1707,7 @@ class App {
   }
 
   async onHear(rate = 1): Promise<void> {
+    this.stopLyric();
     if (this.hearAudio || this.hearTones) {
       this.hearToken += 1;
       this.stopHear();
@@ -1262,6 +1715,28 @@ class App {
       this.listenState = "idle";
       this.render();
       return;
+    }
+    if (this.isOrnament()) rate = 1;
+    const book = await this.lookupBook().catch(() => []);
+    if (book.length > 0) {
+      this.bookClips = book;
+      this.bookReady = true;
+      this.toneGuide = false;
+      try {
+        await this.playBooks(book, rate);
+        return;
+      } catch {
+        this.bookReady = false;
+      }
+    }
+    if (this.wholeSong()) {
+      const rels = await this.wholeWavs();
+      this.refReady = rels != null;
+      if (rels) {
+        this.toneGuide = false;
+        await this.playWavList(rels, rate);
+        return;
+      }
     }
     const rel = this.refPath();
     if (rel) {
@@ -1284,9 +1759,219 @@ class App {
       this.render();
       return;
     }
-    if (this.isOrnament()) rate = 1;
     this.toneGuide = true;
     await this.playToneEvents(events, rate);
+  }
+
+  bookStep(): string {
+    const mode = this.mode();
+    if (mode === "staircase" || mode === "first_sound" || mode === "breath_octave") {
+      return this.currentNote();
+    }
+    return "";
+  }
+
+  skipBookTalk(): boolean {
+    return this.profile?.skip_book_talk !== false;
+  }
+
+  warmupOnLaunch(): boolean {
+    return this.profile?.warmup_on_launch !== false;
+  }
+
+  async wholeWavs(): Promise<string[] | null> {
+    const chunks = this.pack?.phrases.chunks ?? [];
+    if (chunks.length < 2) return null;
+    const rels = chunks.map((chunk) => chunk.ref).filter((rel) => rel.length > 0);
+    if (rels.length !== chunks.length) return null;
+    try {
+      for (const rel of rels) {
+        const ok = await invoke<boolean>("ref_available", { relative: rel });
+        if (!ok) return null;
+      }
+    } catch {
+      return null;
+    }
+    return rels;
+  }
+
+  async playWavList(rels: string[], rate: number): Promise<void> {
+    this.hearKind = "model";
+    this.hearToken += 1;
+    const token = this.hearToken;
+    await invoke("set_grading", { enabled: false });
+    this.listenState = "wait";
+    this.heardPhrase = true;
+    this.remark = "";
+    this.toneGuide = false;
+    const next = async (i: number): Promise<void> => {
+      if (token !== this.hearToken) return;
+      if (i >= rels.length) {
+        this.modelHeard = true;
+        await this.finishHear(token, true);
+        return;
+      }
+      try {
+        const raw = await invoke<ArrayBuffer | number[]>("read_ref", { relative: rels[i] });
+        if (token !== this.hearToken) return;
+        const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
+        this.stopHear();
+        const blob = new Blob([bytes], { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.playbackRate = rate;
+        this.hearUrl = url;
+        this.hearAudio = audio;
+        if (i === 0) this.render();
+        audio.onended = () => {
+          void next(i + 1);
+        };
+        await audio.play();
+      } catch {
+        this.modelHeard = true;
+        await this.finishHear(token, false);
+      }
+    };
+    await next(0);
+  }
+
+  async lookupBook(): Promise<BookClip[]> {
+    if (!this.pack) return [];
+    const lines = this.pack.phrases.chunks.length;
+    if (this.isSongNode() && lines > 1 && !this.wholeSong()) return [];
+    return await invoke<BookClip[]>("book_clip", {
+      packId: this.pack.manifest.id,
+      nodeId: this.nodeId,
+      step: this.bookStep(),
+    });
+  }
+
+  async playBooks(clips: BookClip[], rate: number): Promise<void> {
+    this.hearKind = "model";
+    this.hearToken += 1;
+    const token = this.hearToken;
+    await invoke("set_grading", { enabled: false });
+    this.listenState = "wait";
+    this.heardPhrase = true;
+    this.remark = "";
+    this.toneGuide = false;
+    let started = false;
+    for (const clip of clips) {
+      if (token !== this.hearToken) return;
+      try {
+        await this.playBookFile(clip, rate, token, !started);
+        started = true;
+      } catch {
+        if (token !== this.hearToken) return;
+      }
+    }
+    if (token !== this.hearToken) return;
+    if (!started) {
+      this.listenState = "idle";
+      await invoke("set_grading", { enabled: true });
+      throw new Error("book audio");
+    }
+    await this.finishHear(token, true);
+  }
+
+  async playBookFile(clip: BookClip, rate: number, token: number, paint: boolean): Promise<void> {
+    const raw = await invoke<ArrayBuffer | number[]>("read_book", { file: clip.file });
+    if (token !== this.hearToken) return;
+    const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : Uint8Array.from(raw);
+    const skip = this.skipBookTalk() && clip.spans.length > 0;
+    const spans = clip.spans;
+    const blob = new Blob([bytes], { type: "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.playbackRate = rate;
+    if (this.hearAudio) {
+      this.hearAudio.onended = null;
+      this.hearAudio.ontimeupdate = null;
+      this.hearAudio.pause();
+      this.hearAudio.removeAttribute("src");
+      this.hearAudio.load();
+    }
+    if (this.hearUrl) URL.revokeObjectURL(this.hearUrl);
+    this.hearUrl = url;
+    this.hearAudio = audio;
+    if (paint) this.render();
+    let span = 0;
+    let seeking = false;
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (this.bookDone === finish) this.bookDone = null;
+        audio.ontimeupdate = null;
+        audio.onended = null;
+        resolve();
+      };
+      this.bookDone = finish;
+      audio.onended = () => finish();
+      if (skip) {
+        audio.ontimeupdate = () => {
+          if (seeking || token !== this.hearToken || span >= spans.length) return;
+          if (audio.currentTime < spans[span][1] - 0.05) return;
+          span += 1;
+          if (span >= spans.length) {
+            audio.pause();
+            finish();
+            return;
+          }
+          seeking = true;
+          audio.currentTime = spans[span][0];
+        };
+        audio.onseeked = () => {
+          seeking = false;
+        };
+      }
+      audio.onloadedmetadata = () => {
+        void (async () => {
+          try {
+            if (token !== this.hearToken) {
+              finish();
+              return;
+            }
+            if (skip) {
+              seeking = true;
+              audio.currentTime = spans[0][0];
+              await new Promise<void>((seeked) => {
+                if (Math.abs(audio.currentTime - spans[0][0]) < 0.3) {
+                  seeking = false;
+                  seeked();
+                  return;
+                }
+                audio.onseeked = () => {
+                  seeking = false;
+                  seeked();
+                };
+              });
+            }
+            if (token !== this.hearToken) {
+              finish();
+              return;
+            }
+            await audio.play();
+          } catch {
+            if (!settled) {
+              settled = true;
+              if (this.bookDone === finish) this.bookDone = null;
+              reject(new Error("book audio"));
+            }
+          }
+        })();
+      };
+      audio.onerror = () => {
+        if (!settled) {
+          settled = true;
+          if (this.bookDone === finish) this.bookDone = null;
+          reject(new Error("book audio"));
+        }
+      };
+      audio.src = url;
+    });
   }
 
   async playWav(rel: string, rate: number): Promise<void> {
@@ -1391,6 +2076,16 @@ class App {
       return { node_id, mode: "on_the_breath", notes: this.pack.phrases.on_the_breath.notes };
     }
     if (mode === "phrase") {
+      if (this.wholeSong()) {
+        const song = joinedSong(this.pack.phrases.chunks, this.pack.ornaments.marks);
+        return {
+          node_id,
+          mode: "phrase",
+          notes: song.notes.length ? song.notes : ["D4"],
+          breaths: song.breaths,
+          marks: this.gradedMarks(),
+        };
+      }
       const chunk = this.pack.phrases.chunks[this.phraseIndex];
       return {
         node_id,
@@ -1447,6 +2142,8 @@ class App {
   }
 
   async onPrimary(): Promise<void> {
+    this.cancelAdvance();
+    this.stopLyric();
     if (this.isPage()) {
       await this.settlePage();
       return;
@@ -1530,6 +2227,10 @@ class App {
           pill.className = `state-pill ${this.listenState}`;
           pill.innerHTML = `<i class="dot"></i>${this.listenState}`;
         }
+        if (frame.stopped && (this.listenState === "sounding" || this.listenState === "wait")) {
+          this.stopPoll();
+          void this.finish();
+        }
       } catch {
         /* ignore */
       }
@@ -1548,15 +2249,20 @@ class App {
       return this.stairIndex + 1 >= this.pack.phrases.staircase_notes.length;
     }
     if (this.isPhraseNode()) {
-      return this.phraseIndex + 1 >= this.pack.phrases.chunks.length;
+      return this.phraseIndex + 1 >= this.stepChoices().length;
     }
     return true;
   }
 
   async finish(): Promise<void> {
+    if (this.finishing) return;
+    this.finishing = true;
+    this.cancelAdvance();
+    const gen = this.advanceGen;
     this.hearToken += 1;
     this.stopHear();
     this.stopPoll();
+    try {
     const markSettled = this.shouldMarkSettled();
     const wasRecal = this.recalibrating;
     const result = await invoke<{
@@ -1622,30 +2328,169 @@ class App {
       if (refreshed) this.profile = refreshed;
     }
 
-    if (result.settled && !wasRecal && !this.reviewing && !spot) {
-      await this.advanceAfterSettle();
-    }
+    const walk =
+      gen === this.advanceGen && result.settled && !wasRecal && !this.reviewing && !spot;
     this.render();
+    if (walk) this.scheduleAdvance();
+    } finally {
+      this.finishing = false;
+    }
   }
 
-  async saveAnswers(reads: string, background: string): Promise<void> {
+  cancelAdvance(): void {
+    if (this.advanceTimer != null) {
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
+    }
+    this.advanceGen += 1;
+  }
+
+  scheduleAdvance(): void {
+    if (this.advanceTimer != null) {
+      clearTimeout(this.advanceTimer);
+      this.advanceTimer = null;
+    }
+    const gen = this.advanceGen;
+    this.advanceTimer = window.setTimeout(() => {
+      this.advanceTimer = null;
+      if (gen !== this.advanceGen) return;
+      void this.runAdvance(gen);
+    }, 1500);
+  }
+
+  async runAdvance(gen: number): Promise<void> {
+    if (gen !== this.advanceGen || this.page !== "sitting" || this.listenState !== "feedback") return;
+    const move = advanceMove(this.autoAdvance(), this.sectionPlace(), true);
+    if (move.kind === "stay") return;
+    this.applySection(move);
+    const start = move.start;
+    const hear = start ? await this.modelIsHere() : false;
+    if (gen !== this.advanceGen || this.page !== "sitting") return;
+    this.listenState = "idle";
+    this.render();
+    if (start && !hear) await this.onPrimary();
+  }
+
+  sectionPlace(): SectionPlace {
+    const ids = this.pack.manifest.node_ids;
+    const nextId = ids[this.nodeIndex + 1];
+    const next = this.pack.manifest.nodes?.find((node) => node.id === nextId);
+    const nextMode = next?.mode ?? "";
+    return {
+      step: this.stepIndex(),
+      stepCount: this.stepChoices().length,
+      hasNextNode: nextId != null,
+      nextIsPage: nextMode === "page" || nextMode === "vibrato",
+    };
+  }
+
+  applySection(move: AdvanceMove): void {
+    this.modelHeard = false;
+    this.refReady = null;
+    this.bookClips = [];
+    this.bookReady = null;
+    this.isolateNote = null;
+    this.hasTake = false;
+    this.heardPhrase = false;
+    this.playedPhrase = false;
+    if (move.kind === "step") {
+      if (this.isStair()) this.stairIndex = move.index;
+      else if (this.mode() === "breath_octave") this.wantOctave = move.index === 1;
+      else this.phraseIndex = move.index;
+      return;
+    }
+    if (move.kind !== "node") return;
+    this.nodeIndex += 1;
+    this.stairIndex = 0;
+    this.phraseIndex = 0;
+    this.wantOctave = false;
+    this.hidePictures = !!this.node()?.hide_pictures && this.hidePictures;
+  }
+
+  async modelIsHere(): Promise<boolean> {
+    const rel = this.refPath();
+    let wav = false;
+    if (this.wholeSong()) {
+      wav = (await this.wholeWavs()) != null;
+    } else if (rel) {
+      try {
+        wav = await invoke<boolean>("ref_available", { relative: rel });
+      } catch {
+        wav = false;
+      }
+    }
+    let book: BookClip[] = [];
+    try {
+      book = await this.lookupBook();
+    } catch {
+      book = [];
+    }
+    this.refReady = wav;
+    this.bookClips = book;
+    this.bookReady = book.length > 0;
+    return wav || book.length > 0;
+  }
+
+  autoAdvance(): AutoAdvance {
+    return this.knownAdvance(this.profile?.auto_advance ?? "inside");
+  }
+
+  knownAdvance(raw: string): AutoAdvance {
+    if (raw === "across" || raw === "highlight" || raw === "off") return raw;
+    return "inside";
+  }
+
+  async saveAnswers(
+    reads: string,
+    background: string,
+    skipBookTalk = this.skipBookTalk(),
+    warmupOnLaunch = this.warmupOnLaunch(),
+    autoAdvance: string = this.autoAdvance(),
+  ): Promise<void> {
     if (!this.profile) return;
+    if (this.profile.profile_id === "preview") {
+      this.profile = {
+        ...this.profile,
+        reads: reads as Reads,
+        background: background as Background,
+        skip_book_talk: skipBookTalk,
+        warmup_on_launch: warmupOnLaunch,
+        auto_advance: this.knownAdvance(autoAdvance),
+      };
+      const stored = this.store?.profiles.find((p) => p.profile_id === "preview");
+      if (stored) {
+        stored.reads = this.profile.reads;
+        stored.background = this.profile.background;
+        stored.skip_book_talk = skipBookTalk;
+        stored.warmup_on_launch = warmupOnLaunch;
+        stored.auto_advance = this.profile.auto_advance;
+      }
+      this.render();
+      return;
+    }
     const profile = await invoke<WhistleProfile>("update_profile_answers", {
       profileId: this.profile.profile_id,
       reads,
       background,
+      skipBookTalk,
+      warmupOnLaunch,
+      autoAdvance: this.knownAdvance(autoAdvance),
     });
     this.profile = profile;
     const stored = this.store.profiles.find((p) => p.profile_id === profile.profile_id);
     if (stored) {
       stored.reads = profile.reads;
       stored.background = profile.background;
+      stored.skip_book_talk = profile.skip_book_talk;
+      stored.warmup_on_launch = profile.warmup_on_launch;
+      stored.auto_advance = profile.auto_advance;
     }
     this.render();
   }
 
   async onRecalibrate(): Promise<void> {
     if (this.listenState === "sounding" || this.listenState === "wait") return;
+    this.page = "sitting";
     this.recalibrating = true;
     this.listenState = "idle";
     await this.onPrimary();
@@ -1654,6 +2499,8 @@ class App {
   async advanceAfterSettle(): Promise<void> {
     this.modelHeard = false;
     this.refReady = null;
+    this.bookClips = [];
+    this.bookReady = null;
     this.isolateNote = null;
     this.hasTake = false;
     if (this.isStair()) {
@@ -1665,10 +2512,14 @@ class App {
       }
     }
     if (this.isPhraseNode()) {
-      if (this.phraseIndex + 1 < this.pack.phrases.chunks.length) {
+      if (this.phraseIndex + 1 < this.stepChoices().length) {
         this.phraseIndex += 1;
         this.heardPhrase = false;
         this.playedPhrase = false;
+        if (this.wholeSong()) {
+          this.modelHeard = false;
+          this.refReady = null;
+        }
         this.listenState = "idle";
         return;
       }
@@ -1685,6 +2536,7 @@ class App {
   }
 
   async onStepPast(): Promise<void> {
+    this.cancelAdvance();
     this.hearToken += 1;
     this.stopHear();
     this.stopPoll();
@@ -1742,6 +2594,7 @@ class App {
           .map((pack) => {
             const aka = pack.aka.length ? `<p class="meta">${escapeHtml(pack.aka.join(" · "))}</p>` : "";
             const ref = pack.book_ref ? `<p class="meta">${escapeHtml(pack.book_ref)}</p>` : "";
+            const cite = pack.playable && pack.source ? `<p class="meta">${escapeHtml(pack.source)}</p>` : "";
             const open = pack.playable && pack.open
               ? `<button type="button" class="primary" data-open-pack="${escapeHtml(pack.id)}">Open</button>`
               : "";
@@ -1749,7 +2602,7 @@ class App {
               ? `<button type="button" class="ghost" data-session="${escapeHtml(pack.session)}">On The Session</button>`
               : "";
             const note = pack.playable ? "" : `<p class="meta">In the book. No notes and no audio here.</p>`;
-            return `<article class="shelf-card"><h2>${escapeHtml(pack.title)}</h2>${ref}${aka}${note}<div class="row">${open}${session}</div></article>`;
+            return `<article class="shelf-card"><h2>${escapeHtml(pack.title)}</h2>${ref}${aka}${cite}${note}<div class="row">${open}${session}</div></article>`;
           })
           .join("");
         return `<h2>${escapeHtml(shelf)}</h2>${cards}`;
@@ -1811,6 +2664,35 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+const AUTO_ADVANCE: Array<[string, string]> = [
+  ["inside", "Next one in this part"],
+  ["across", "Keep going"],
+  ["highlight", "Move on, I’ll start it"],
+  ["off", "Stay here"],
+];
+
+const READS: Array<[Reads, string]> = [
+  ["no", "No"],
+  ["some", "A little"],
+  ["yes", "Yes"],
+];
+
+const BACKGROUND: Array<[Background, string]> = [
+  ["none", "New to music"],
+  ["wind", "Wind instrument (flute, recorder, …)"],
+  ["other", "Other instrument or singer"],
+  ["high_d", "Already play high D whistle"],
+];
+
+function optionList(options: Array<[string, string]>, current: string): string {
+  return options
+    .map(
+      ([value, label]) =>
+        `<option value="${value}"${value === current ? " selected" : ""}>${escapeHtml(label)}</option>`,
+    )
+    .join("");
 }
 
 const app = new App();

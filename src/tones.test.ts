@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { noteHz, ornamentEvents, phraseEvents } from "./tones.ts";
+import { noteHz, ornamentEvents, phraseEvents, songToneEvents } from "./tones.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -28,6 +28,21 @@ test("c in the C-natural line stays the pack's C", () => {
 test("a high d follows the pack's note list", () => {
   const events = phraseEvents("D2 F A d | A2 F D", ["D4", "F#4", "A4", "D5", "A4", "F#4", "D4"], D4);
   assert.ok(Math.abs(events[3].hz - noteHz("D5", D4)) < 0.01);
+});
+
+test("the whole song plays every line, with a breath between them", () => {
+  const events = songToneEvents(
+    [
+      { abc: "D2 E | F2 G | A3", notes: ["D4", "E4", "F#4", "G4", "A4"] },
+      { abc: "A2 F | G2 E | D3", notes: ["A4", "F#4", "G4", "E4", "D4"] },
+    ],
+    D4,
+  );
+  const sounded = events.filter((event) => event.hz > 0);
+  const rests = events.filter((event) => event.hz === 0);
+  assert.equal(sounded.length, 10);
+  assert.equal(rests.length, 1);
+  assert.ok(rests[0].seconds > 0);
 });
 
 test("a mismatched line does not invent pitches", () => {

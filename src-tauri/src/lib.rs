@@ -1,4 +1,7 @@
+mod book;
 mod commands;
+mod song;
+mod midi;
 pub mod listen;
 mod pack;
 mod store;
@@ -46,9 +49,13 @@ pub fn run() {
             commands::save_profile,
             commands::update_profile_answers,
             commands::select_profile,
+            commands::set_lesson_packs,
             commands::set_progress,
             commands::ref_available,
             commands::read_ref,
+            commands::book_clip,
+            commands::read_book,
+            commands::song_sheet,
             commands::read_last_take,
             commands::start_attempt,
             commands::set_grading,

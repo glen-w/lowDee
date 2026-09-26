@@ -15,6 +15,10 @@ Local practice companion for the Irish low-D whistle. One path from the first so
 
 `brainstorm/` holds the notes those decisions came from. It is not the current product. `pack/` is the chain the app loads. *The May Morning Dew* is the door. A folder under `teacher/` can be opened from the desk after that door is settled; see [teacher/README.md](teacher/README.md).
 
+The syllabus is *The Low Whistle Book*. The companion recordings are on the publisher’s page: [publishing.hobgoblin.com/low-whistle](https://publishing.hobgoblin.com/low-whistle/). A copy for this machine can sit in `book/`. Those files stay off git. Hear plays a matching track when it is there. See [book/README.md](book/README.md).
+
+An optional lyrics panel can show words and a melody fetched for personal practice from the [Traditional Music Library](https://www.traditionalmusic.co.uk/song-midis/songs-midis.html) and [Mudcat](https://mudcat.org/). Those files stay in `songs/library/`, off git. The sitting does not download them. What the sites allow, and what they do not, is in [songs/README.md](songs/README.md).
+
 ## Develop
 
 App window and bundle icons are generated from `icons/logo.png`. Regenerate with:
