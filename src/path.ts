@@ -66,6 +66,24 @@ export function joinedSong(chunks: readonly SongChunk[], marks: readonly SongMar
 
 export const PATH_NOTE = "Any part is open. The marks record what you’ve already done.";
 
+export interface HornHandoff {
+  showWarmup: boolean;
+  nodeIndex: number;
+}
+
+/** A new horn has not done this sitting's pass. An existing horn keeps a pass already done. */
+export function hornHandoff(opts: {
+  fresh: boolean;
+  warmedThisSitting: boolean;
+  nodeIds: readonly string[];
+  progress: readonly ProgressMark[];
+}): HornHandoff {
+  return {
+    showWarmup: opts.fresh || !opts.warmedThisSitting,
+    nodeIndex: resumeIndex(opts.nodeIds, opts.progress),
+  };
+}
+
 /** First unsettled node. A later settle does not pull the sitting past an earlier gap. */
 export function resumeIndex(nodeIds: readonly string[], progress: readonly ProgressMark[]): number {
   if (nodeIds.length === 0) return 0;

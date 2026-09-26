@@ -8,6 +8,7 @@ import {
   menuKindFor,
   practiceNavHtml,
   primaryHears,
+  hornHandoff,
   resumeIndex,
   reviewCell,
   stepNavHtml,
@@ -31,6 +32,47 @@ const ids = [
 ];
 
 const titles = Object.fromEntries(ids.map((id) => [id, id]));
+
+test("a new whistle warms up at its first unsettled part", () => {
+  const fresh = hornHandoff({
+    fresh: true,
+    warmedThisSitting: true,
+    nodeIds: ids,
+    progress: [],
+  });
+  assert.equal(fresh.showWarmup, true);
+  assert.equal(fresh.nodeIndex, 0);
+
+  const mid = hornHandoff({
+    fresh: true,
+    warmedThisSitting: true,
+    nodeIds: ids,
+    progress: [
+      { node_id: "first_sound", state_reached: "settled" },
+      { node_id: "staircase", state_reached: "started" },
+    ],
+  });
+  assert.equal(mid.showWarmup, true);
+  assert.equal(mid.nodeIndex, 1);
+
+  const kept = hornHandoff({
+    fresh: false,
+    warmedThisSitting: true,
+    nodeIds: ids,
+    progress: [{ node_id: "first_sound", state_reached: "settled" }],
+  });
+  assert.equal(kept.showWarmup, false);
+  assert.equal(kept.nodeIndex, 1);
+
+  const cold = hornHandoff({
+    fresh: false,
+    warmedThisSitting: false,
+    nodeIds: ids,
+    progress: [{ node_id: "first_sound", state_reached: "settled" }],
+  });
+  assert.equal(cold.showWarmup, true);
+  assert.equal(cold.nodeIndex, 1);
+});
 
 test("a new sitting opens on the first unsettled part", () => {
   const progress: ProgressMark[] = [

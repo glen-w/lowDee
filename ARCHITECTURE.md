@@ -65,6 +65,12 @@ flowchart TB
     maints --> about
     maints --> types
     maints --> abc
+    lyrics[lyrics.ts]
+    tones[tones.ts]
+    figure[warm-figure.ts]
+    maints --> lyrics
+    maints --> tones
+    warmup --> figure
   end
 
   subgraph rust [low_d_lib]
@@ -84,9 +90,15 @@ flowchart TB
       ltypes[types.rs]
       fingering[fingering.rs]
     end
+    bookmod[book.rs]
+    midimod[midi.rs]
+    songmod[song.rs]
     lib --> commands
     commands --> packmod
     commands --> storemod
+    commands --> bookmod
+    commands --> songmod
+    packmod --> midimod
     commands --> mic
     mic --> attempt
     attempt --> pitch
@@ -103,24 +115,28 @@ flowchart TB
 
 | Module | Owns |
 | --- | --- |
-| `src/main.ts` | Screen state: which pack, which node, which stair note, which phrase, listen pill, Hear and Slower, the review, polling, warm-up, glossary, shelf, desk, the tube page. |
-| `src/path.ts` | The practice rail, the lesson set row, the note-or-phrase row, which step a sitting reviews, and when Hear is the primary action. It does not write progress. |
+| `src/main.ts` | Screen state: which pack, which node, which stair note, which phrase, listen pill, Hear and Slower, the review, polling, warm-up, glossary, shelf, desk, the tube page, and the sheet that names another whistle. |
+| `src/path.ts` | The practice rail, the lesson set row, the note-or-phrase row, which step a sitting reviews, when Hear is the primary action, and which horn keeps this sitting’s warm-up. It does not write progress. |
 | `src/ghost.ts` | The phrase line drawn under the remark after feedback. |
 | `src/desk.ts` | The one-folder desk. It does not load packs. |
 | `src/cnat.ts` | The second C-natural picture, offered only after this stick disagrees. |
 | `src/about.ts` | The “this tube” page: whistory, the transposition refusal, and a name-only list. Wording is ours; the rules are in [CONCEPT.md](CONCEPT.md). |
 | `src/glossary.ts` | Glossary copy and the word list: whistle, ornaments, tune types. |
 | `src/lyrics.ts` | The optional lyrics panel: which verse matches the line just heard, and the personal-practice notice. |
+| `src/tones.ts` | Plain tones for Hear and Slower when no recording is on disk, and for a fetched melody. |
 | `src/picture.ts` | The low-D drawing: the tube, a column per note when the step has several, the hole a cut or tap moves, the letter and its sol-fa, and the reader’s sol-fa again under the staff. |
 | `src/warmup.ts` | The hands-and-breath pass. It is not stored. |
+| `src/warm-figure.ts` | The drawings on that pass. |
 | `src/preview.ts` | Dev-only picture fixture. `tauri dev` with `?preview=picture`. |
 | `src/path-preview.ts` | Dev-only rail fixture. `?nav`. |
 | `src/types.ts` | Webview types, a fallback copy map, and which remark sentence to show. |
 | `commands.rs` | Tauri commands and `AppState`. |
 | `pack.rs` | The catalog: every pack folder, the chain, and reference paths inside `ref/*.wav`. |
-| `store.rs` | `low-d-store.json`: profiles and progress. |
+| `store.rs` | `low-d-store.json`: profiles and progress. `read` and `update` hold one lock for the whole change. |
 | `song.rs` | A sheet in `songs/library/`. It loads only a `personal` licence, only from the two source hosts, and only a safe file name. |
-| `listen/mic.rs` | cpal input on its own thread. The stream is not `Send` on macOS, so the thread holds it and the rest of the app holds `Arc` handles. |
+| `book.rs` | Clips named in `book/tracks.json`, and which file Hear may read. |
+| `midi.rs` | A piano MIDI brought in under `teacher/`, moved onto this whistle. |
+| `listen/mic.rs` | cpal input on its own thread. The stream is not `Send` on macOS, so the thread holds it and the rest of the app holds `Arc` handles. `start` returns only after the stream is playing, or with the reason it did not. A later stream error is kept for `poll_frame`. |
 | `listen/attempt.rs` | Hop windows, frozen target, evidence at the end of an attempt, the note a phrase fault names, and the capped take. |
 | `listen/pitch.rs` | YIN tracker, band about 250–1600 Hz, plus a search near the expected note. |
 | `listen/rms.rs` | Energy of a window, used as a breath proxy. |
@@ -131,17 +147,17 @@ flowchart TB
 | `listen/fingering.rs` | The hole chart the pack is checked against, and which single hole a leak names. |
 | `listen/evidence.rs` | Evidence enum and the four listen-state names. |
 
-`AppState` holds the catalog, the pack on screen, the store directory, the live `MicSession`, the frozen target hertz for the attempt on screen, and the last take. The take is wav bytes in memory. `drop_attempt` and the next `start_attempt` clear it. `read_last_take` returns those bytes. A couldn’t-hear and an abstain store nothing.
+`AppState` holds the catalog, the pack on screen, the store directory, a lock around each practice-record change, the live `MicSession`, the frozen target hertz for the attempt on screen, and the last take. The take is wav bytes in memory. `drop_attempt` and the next `start_attempt` clear it. `read_last_take` returns those bytes. A couldn’t-hear and an abstain store nothing.
 
 ## Startup
 
 `run` loads every manifest under `pack/`, and under a sibling `teacher/` directory when that folder exists. The door is `may-morning-dew`. If that catalog cannot be loaded, startup panics. Setup searches the working directory, the Cargo manifest’s `pack/`, and the bundled resource directory, and replaces the catalog when it finds the door.
 
-The webview calls `get_catalog`, opens the earliest pack that is open and not yet settled, then `get_pack` and `get_store`. A saved `active_profile_id` skips the object card. The launch then runs the warm-up, which is kept only in memory, unless this profile’s `warmup_on_launch` is false. Practice opens on the first unsettled node of that pack. The rail opens every node in the pack. Leaving a node or a step calls `drop_attempt`, which releases the microphone and writes nothing.
+The webview calls `get_catalog`, opens the earliest pack that is open and not yet settled, then `get_pack` and `get_store`. A saved `active_profile_id` skips the object card. The launch then runs the warm-up, which is kept only in memory, unless this profile’s `warmup_on_launch` is false. Practice opens on the first unsettled node of that pack. The rail opens every node in the pack. Leaving a node or a step, leaving the practice card, changing pack, or switching whistle calls `drop_attempt`, which releases the microphone and writes nothing. Another whistle, from practice, asks for a name and opens that horn at its first unsettled part, with the warm-up, because that horn has not done this sitting’s pass. Choosing a horn already stored keeps a pass already done.
 
 A folder under `teacher/` is loaded beside `pack/`. One bad teacher folder is remembered and skipped. It does not drop the door. The desk lists those folders, and the refusals, once `may-morning-dew` is settled. `open_pack` refuses a teacher pack before that.
 
-Dev query flags, with `tauri dev`: `?preview=picture`, `?warmup`, `?glossary`, `?nav`, `?sitting`.
+Dev query flags, with `tauri dev`: `?preview=picture`, `?warmup`, `?glossary`, `?nav`, `?lyrics`, `?sitting`.
 
 ## Screens
 
@@ -163,6 +179,9 @@ stateDiagram-v2
   Practice --> Desk: "A tune on the table, after the door"
   Shelf --> Desk: "A tune on the table"
   Desk --> Practice: "Back, or Open"
+  Practice --> Name: Another whistle
+  Name --> Warmup: a new horn
+  Name --> Practice: Back
   Practice --> About: This tube
   ObjectCard --> About: This tube
   Glossary --> ObjectCard: "Back, no profile"
@@ -179,7 +198,7 @@ The warm-up is one pass: hands and wrists, both hands, then a counted hiss. Begi
 
 Practice shows the whistle’s nickname, the pack title, a rail of that pack’s nodes (each one can be opened), and the node’s copy from the pack. Inside a staircase, the octave, and a phrase, a second row opens a single note or line. Listen nodes add a listen pill, the hole picture, an optional staff, one remark, a line under that remark after feedback, a hold bar, and the target line (the frozen hertz and this whistle’s break, or, before calibration, that the listen is only whether low D is there). Reading and background are not on that card. Settings writes them with `update_profile_answers`, and, once a break is stored and the warm-up is done, starts a recalibrate hold. After the door pack is settled, “A tune on the table” opens the desk. A page node such as `hedwig` does not start an attempt. `vibrato` is the same kind of page. Copy for `high_d` replaces the pack’s `high_d_body` when that field is set. Wind players only change the “restarted notes” remark, via `remarks.json`. Song words, when the pack has them, show after Hear or after the line has been played, and can hide. A dance pack’s pulse button clicks a count; it is not sent to the engine.
 
-Glossary is a word list in the webview: the whistle, ornaments, and tune types. Search filters it. Back or Escape returns to the screen that opened it. An attempt already running is left running.
+Glossary is a word list in the webview: the whistle, ornaments, and tune types. Search filters it. Back or Escape returns to the screen that opened it. Opening the glossary, settings, the shelf, the desk, or this tube releases the microphone and writes nothing. Glossary and Settings still pause a warm-up that is running, and resume it on Back.
 
 Buttons:
 
@@ -198,7 +217,7 @@ Buttons:
 | Next | The pack’s nodes are settled and a later pack is open | `open_pack` on that id. |
 | Shelf | `salley-gardens` is settled | Index of packs. Open calls `open_pack`. A Session URL calls `openUrl`. |
 | This tube | Name card and practice | The page in `about.ts`. |
-| Another whistle | Practice, and the name card when a profile exists | Selects a stored profile, or returns to the name card. |
+| Another whistle | Practice | Asks for a nickname, reading, and background. Save writes a new profile and opens that horn’s warm-up, then its first unsettled part. Back returns to the sitting. A horn already stored is the menu beside this button, and on the object card. |
 | Practice rail | Always | Opens that node. Releases the microphone if an attempt or Hear was running. Writes no progress. |
 | Note or phrase | Staircase, octave, and phrase nodes | Opens that note or phrase. Low D and Octave switch the expected note between D4 and D5. Same release, no progress write. |
 
@@ -213,8 +232,9 @@ stateDiagram-v2
   [*] --> idle
   idle --> wait: Hear starts
   wait --> idle: Hear ends or Stop
-  idle --> sounding: I’m ready
+  idle --> sounding: I’m ready, once the stream is playing
   feedback --> sounding: Try again
+  sounding --> idle: the stream dies
   sounding --> feedback: Stop, or I’m done
   wait --> sounding: I’m ready, once the model has played
 ```
@@ -236,6 +256,7 @@ sequenceDiagram
   Cmd->>Cmd: read active profile
   Cmd->>Mic: start(AttemptConfig)
   Mic->>Eng: new, snapshot frozen target
+  Mic-->>Cmd: playing, or it did not open
   Cmd-->>UI: mic, target_hz
   loop every 120 ms
     UI->>Cmd: poll_frame
@@ -250,7 +271,7 @@ sequenceDiagram
   UI->>UI: remarkFor, ghost under the remark, Hear that if the take was kept, then the section setting
 ```
 
-`start_attempt` drops any previous session first. The config’s sample rate is replaced by the device rate. Hop length stays 30 ms (10 ms on the ornament fixtures in the bench). If the microphone will not open, the command returns `ok: false` and `mic: false`, and it does not mark the node started. The screen stays `idle` and shows the couldn’t-hear remark. Finish with no session yields `couldnt_hear`.
+`start_attempt` drops any previous session first. The config’s sample rate is replaced by the device rate. Hop length stays 30 ms (10 ms on the ornament fixtures in the bench). The command waits until the capture stream is playing. If the microphone will not open, it returns `ok: false` and `mic: false`, stores no session, and does not mark the node started. The screen stays `idle` and shows the couldn’t-hear remark. A stream error after that is reported on the next `poll_frame` as `mic_lost`. The card drops the attempt and returns to idle with the same remark. A started mark from an attempt that did open stays. If the started mark cannot be saved, the microphone is dropped and the command returns an error. The card stays idle. Finish with no session yields `couldnt_hear`. A thrown finish returns the card to idle as well.
 
 The engine freezes `target_hz` when the attempt is constructed. Later notes in a phrase are intervals from `break_hz` (or from 293.66 Hz when the profile has no break yet). Finish returns that same snapshot. The webview logs a warning if the returned target differs from the one it stored by more than half a hertz. Recalibrate starts a new `first_sound` hold between attempts. It does not move the target of an attempt already running. On settle it writes the profile once and does not mark the node on screen.
 
@@ -355,7 +376,7 @@ flowchart LR
   Progress --> File
 ```
 
-Path: the Tauri app-data directory, file `low-d-store.json`. A missing file loads as an empty store. A file that will not parse is renamed to `low-d-store.json.bak-<stamp>` and that load returns an error; the next load, finding nothing, is empty. Writes go to `low-d-store.json.tmp` and then rename over the store.
+Path: the Tauri app-data directory, file `low-d-store.json`. A missing file loads as an empty store. A file that will not parse is renamed to `low-d-store.json.bak-<stamp>` and that load returns an error; the next load, finding nothing, is empty. Writes go to `low-d-store.json.tmp` and then rename over the store. Each load-modify-save holds one lock, so a start and a finish cannot drop each other’s rows.
 
 ```json
 {
@@ -371,7 +392,8 @@ Path: the Tauri app-data directory, file `low-d-store.json`. A missing file load
       "cnat_fingering": null,
       "skip_book_talk": true,
       "warmup_on_launch": true,
-      "lesson_packs": []
+      "lesson_packs": [],
+      "auto_advance": "inside"
     }
   ],
   "active_profile_id": "uuid",
@@ -381,7 +403,7 @@ Path: the Tauri app-data directory, file `low-d-store.json`. A missing file load
 }
 ```
 
-`state_reached` is `started` (when an attempt opens) or `settled`. A later `started` does not downgrade `settled`. `via` is `heard` when the loop settled the node, and `stepped` when the player moved on unheard. `stepped` does not replace `heard`. Progress is stored per `profile_id` and `pack_id`. An old flat list is attached to the active profile once, and an empty `pack_id` becomes `may-morning-dew`. `cnat_fingering` stays empty until `c-natural` settles by ear. An old profile shows the warm-up on launch, and skips the talk on a book recording. The name card calls `save_profile` and `select_profile`. Practice calls `select_profile` when more than one whistle is stored. Settings calls `update_profile_answers` when reading, background, the book talk, or the warm-up on launch changes. `lesson_packs` is the song packs this whistle has added. `set_lesson_packs` keeps only ids that are open, playable, public domain, and a song. An old profile has an empty list. Progress writes go through start, finish, and step. A recalibrate finish writes the profile and does not write progress.
+What `started`, `settled`, and `via` mean is in [CONCEPT.md](CONCEPT.md). Progress is stored per `profile_id` and `pack_id`. An old flat list is attached to the active profile once, and an empty `pack_id` becomes `may-morning-dew`. `cnat_fingering` stays empty until `c-natural` settles by ear. An old profile shows the warm-up on launch, and skips the talk on a book recording. The name card calls `save_profile` and `select_profile`. Practice calls `select_profile` to choose a horn already stored, and `save_profile` from Another whistle. Settings calls `update_profile_answers` when reading, background, the book talk, the warm-up on launch, or the section setting changes. `lesson_packs` is the song packs this whistle has added. `set_lesson_packs` keeps only ids that are open, playable, public domain, and a song. An old profile has an empty list. Progress writes go through start, finish, and step. A recalibrate finish writes the profile and does not write progress.
 
 ## Notes and targets
 
@@ -411,18 +433,18 @@ Synthetic fixtures are pure sines and noise in `listen/synth.rs`: a 10.5 s low D
 | `open_pack` | init, Next, the shelf, the desk, and a lesson-set pill | Puts a playable pack on screen. A teacher pack stays closed until the door is settled |
 | `set_lesson_packs` | Add and Take off | Writes `lesson_packs` for this whistle. Drops a closed pack, a drill, a page-only title, and a teacher folder |
 | `get_store` | init and after writes | Profiles and progress |
-| `save_profile` | object card | New profile, break still 0 |
-| `update_profile_answers` | Settings | Rewrites `reads`, `background`, `skip_book_talk`, and `warmup_on_launch`. Does not move the break |
-| `select_profile` | name card and the whistle menu | Sets `active_profile_id` |
+| `save_profile` | object card and Another whistle | New profile, break still 0. Activates that whistle |
+| `update_profile_answers` | Settings | Rewrites `reads`, `background`, `skip_book_talk`, `warmup_on_launch`, and `auto_advance`. Does not move the break |
+| `select_profile` | the whistle menu, and a horn already named on the object card | Sets `active_profile_id` |
 | `set_progress` | via start, finish, step | `started`, or `settled` with `via` `heard` or `stepped` |
 | `ref_available` | each render | Whether Hear has a file |
 | `read_ref` | Hear | Bytes of one `ref/*.wav` |
 | `song_sheet` | opening a pack | The local lyrics sheet for this pack, or nothing. It does not fetch. |
-| `start_attempt` | I’m ready | Opens the mic and freezes the target. If the mic will not open, returns `mic: false` and does not mark the node started |
+| `start_attempt` | I’m ready | Opens the mic and freezes the target once the stream is playing. If the mic will not open, returns `mic: false` and does not mark the node started. If the started mark cannot be saved, drops the mic and returns an error |
 | `set_grading` | Hear and Slower | Drops samples while the speaker is playing |
-| `poll_frame` | during an attempt | Hertz, RMS, confidence, near target, early break, expected note, phrase index, hold ratio, leak hole |
+| `poll_frame` | during an attempt | Hertz, RMS, confidence, near target, early break, expected note, phrase index, hold ratio, leak hole, and whether the stream has died |
 | `finish_attempt` | I’m done | Evidence, optional calibration write, ghost, warm, C-natural disagreement |
-| `drop_attempt` | Opening another part or step | Releases the microphone. Writes no progress |
+| `drop_attempt` | Opening another part or step, leaving the practice card, changing pack, or switching whistle | Releases the microphone. Writes no progress |
 | `step_past` | Couldn’t hear — continue, and a page node’s settle button | Settles the node without a listen result |
 | `get_frozen_target` | — | Target stored for the open attempt |
 

@@ -386,18 +386,18 @@ The app does not download a file onto the desk. It points at a place to look, in
 Progress:
 
 ```
-{ node_id, state_reached, as_of }
+{ profile_id, pack_id, node_id, state_reached, via, as_of }
 ```
 
-`state_reached` is `started` or `settled`. `started` means an attempt opened. `settled` means the loop heard the lesson’s target, or the player marked the part and moved on. A heard settle stays heard. Each whistle keeps its own progress. No WAV in this record. A review, and a single note opened from a phrase fault, do not write progress. The last take is memory only, and it is dropped with the attempt.
+`state_reached` is `started` or `settled`. `started` means an attempt opened, and it is written only after the microphone is playing. A microphone that never opens does not write it. `settled` means the loop heard the lesson’s target, or the player marked the part and moved on. `via` is `heard` when the loop settled it, and `stepped` when the player moved on without a listen result. A heard settle stays heard: a later start, or a step past, does not replace it. Each whistle keeps its own progress, and each pack keeps its own. No WAV in this record. A review, and a single note opened from a phrase fault, do not write progress. The last take is memory only, and it is dropped with the attempt.
 
 Whistle profile:
 
 ```
-{ profile_id, label, break_hz, rms_floor, cal_as_of, reads, background, cnat_fingering, warmup_on_launch, lesson_packs }
+{ profile_id, label, break_hz, rms_floor, cal_as_of, reads, background, cnat_fingering, skip_book_talk, warmup_on_launch, lesson_packs, auto_advance }
 ```
 
-`label` is the nickname. `break_hz` and `rms_floor` are written when `first_sound` settles, not before the player can play. `reads` and `background` choose pictures and wording. `warmup_on_launch` is whether the hands-and-breath pass shows the next time this profile opens the app. It defaults to showing the pass. `cnat_fingering` is written when the C-natural pack settles: which fingering held on this stick. Half-hole and a second cross-fingering wait until they disagree here. `break_hz` and `rms_floor` stay the tuning. `lesson_packs` is songs this whistle has added from packs that are already open. The path order does not change. A page-only title is not on that list.
+`label` is the nickname. `break_hz` and `rms_floor` are written when `first_sound` settles, not before the player can play. `reads` and `background` choose pictures and wording. `skip_book_talk` is whether Hear on a book recording starts at the whistle. It defaults to skipping the talk. `warmup_on_launch` is whether the hands-and-breath pass shows the next time this profile opens the app. It defaults to showing the pass. `cnat_fingering` is written when the C-natural pack settles: which fingering held on this stick. Half-hole and a second cross-fingering wait until they disagree here. `break_hz` and `rms_floor` stay the tuning. `lesson_packs` is songs this whistle has added from packs that are already open. The path order does not change. A page-only title is not on that list. `auto_advance` is how far a settled section walks on its own: the next note in this part, into the next part, on to the next and wait, or stay. It defaults to the next note in this part. A miss stays.
 
 Several profiles may exist. Practice names the one in hand.
 

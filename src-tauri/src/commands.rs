@@ -18,6 +18,8 @@ pub struct AppState {
     pub pack: Mutex<Pack>,
     pub catalog: Mutex<Catalog>,
     pub store_dir: Mutex<PathBuf>,
+    /// One lock for every load-modify-save of the practice record.
+    pub store_gate: Mutex<()>,
     pub mic: Mutex<Option<MicSession>>,
     /// Frozen target for the in-flight attempt (UI display).
     pub attempt_target_hz: Mutex<Option<f32>>,
@@ -67,6 +69,25 @@ pub struct FrameDto {
     pub hold_ratio: f32,
     pub leak_hole: Option<u8>,
     pub stopped: bool,
+    pub mic_lost: bool,
+}
+
+/// A part is marked started only after the microphone is actually open.
+/// Recalibrate, a review, and a single-note spot do not write progress.
+pub fn should_mark_started(mic_opened: bool, record: bool, recalibrate: bool) -> bool {
+    mic_opened && record && !recalibrate
+}
+
+fn read_store(app: &AppHandle, state: &State<'_, AppState>) -> Result<AppStore, String> {
+    store::read(&data_dir(app), &state.store_gate)
+}
+
+fn update_store<T>(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    f: impl FnOnce(&mut AppStore) -> Result<T, String>,
+) -> Result<T, String> {
+    store::update(&data_dir(app), &state.store_gate, f)
 }
 
 fn parse_reads(s: &str) -> Reads {
@@ -143,8 +164,8 @@ pub fn get_catalog(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<pack::CatalogView, String> {
+    let store = read_store(&app, &state)?;
     let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
-    let store = store::load(&data_dir(&app))?;
     let profile_id = store.active_profile_id.clone().unwrap_or_default();
     let marks: Vec<ProgressMark> = store
         .progress
@@ -165,15 +186,18 @@ pub fn open_pack(
     state: State<'_, AppState>,
     pack_id: String,
 ) -> Result<(), String> {
-    let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
-    let pack = catalog
-        .packs
-        .iter()
-        .find(|p| p.manifest.id == pack_id && p.playable)
-        .cloned()
-        .ok_or_else(|| "pack not found".to_string())?;
+    let pack = {
+        let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
+        catalog
+            .packs
+            .iter()
+            .find(|p| p.manifest.id == pack_id && p.playable)
+            .cloned()
+            .ok_or_else(|| "pack not found".to_string())?
+    };
     if pack.origin == "teacher" {
-        let store = store::load(&data_dir(&app))?;
+        let store = read_store(&app, &state)?;
+        let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
         let profile_id = store.active_profile_id.clone().unwrap_or_default();
         let marks: Vec<ProgressMark> = store
             .progress
@@ -190,7 +214,6 @@ pub fn open_pack(
             return Err("The desk opens after The May Morning Dew.".into());
         }
     }
-    drop(catalog);
     *state.pack.lock().map_err(|e| e.to_string())? = pack;
     Ok(())
 }
@@ -198,8 +221,9 @@ pub fn open_pack(
 #[tauri::command]
 pub fn get_store(app: AppHandle, state: State<'_, AppState>) -> Result<AppStore, String> {
     let dir = data_dir(&app);
-    *state.store_dir.lock().map_err(|e| e.to_string())? = dir.clone();
-    store::load(&dir)
+    let loaded = read_store(&app, &state)?;
+    *state.store_dir.lock().map_err(|e| e.to_string())? = dir;
+    Ok(loaded)
 }
 
 #[tauri::command]
@@ -209,7 +233,6 @@ pub fn save_profile(
     args: CreateProfileArgs,
 ) -> Result<WhistleProfile, String> {
     let dir = data_dir(&app);
-    let mut st = store::load(&dir)?;
     let profile = WhistleProfile {
         profile_id: uuid::Uuid::new_v4().to_string(),
         label: args.label,
@@ -224,8 +247,10 @@ pub fn save_profile(
         lesson_packs: Vec::new(),
         auto_advance: AutoAdvance::Inside,
     };
-    store::upsert_profile(&mut st, profile.clone());
-    store::save(&dir, &st)?;
+    update_store(&app, &state, |st| {
+        store::upsert_profile(st, profile.clone());
+        Ok(())
+    })?;
     *state.store_dir.lock().map_err(|e| e.to_string())? = dir;
     Ok(profile)
 }
@@ -233,6 +258,7 @@ pub fn save_profile(
 #[tauri::command]
 pub fn update_profile_answers(
     app: AppHandle,
+    state: State<'_, AppState>,
     profile_id: String,
     reads: String,
     background: String,
@@ -240,27 +266,25 @@ pub fn update_profile_answers(
     warmup_on_launch: Option<bool>,
     auto_advance: Option<String>,
 ) -> Result<WhistleProfile, String> {
-    let dir = data_dir(&app);
-    let mut st = store::load(&dir)?;
-    let profile = st
-        .profiles
-        .iter_mut()
-        .find(|p| p.profile_id == profile_id)
-        .ok_or_else(|| "profile not found".to_string())?;
-    profile.reads = parse_reads(&reads);
-    profile.background = parse_background(&background);
-    if let Some(skip) = skip_book_talk {
-        profile.skip_book_talk = skip;
-    }
-    if let Some(show) = warmup_on_launch {
-        profile.warmup_on_launch = show;
-    }
-    if let Some(advance) = auto_advance {
-        profile.auto_advance = parse_auto_advance(&advance);
-    }
-    let out = profile.clone();
-    store::save(&dir, &st)?;
-    Ok(out)
+    update_store(&app, &state, |st| {
+        let profile = st
+            .profiles
+            .iter_mut()
+            .find(|p| p.profile_id == profile_id)
+            .ok_or_else(|| "profile not found".to_string())?;
+        profile.reads = parse_reads(&reads);
+        profile.background = parse_background(&background);
+        if let Some(skip) = skip_book_talk {
+            profile.skip_book_talk = skip;
+        }
+        if let Some(show) = warmup_on_launch {
+            profile.warmup_on_launch = show;
+        }
+        if let Some(advance) = auto_advance {
+            profile.auto_advance = parse_auto_advance(&advance);
+        }
+        Ok(profile.clone())
+    })
 }
 
 #[tauri::command]
@@ -270,41 +294,45 @@ pub fn set_lesson_packs(
     profile_id: String,
     pack_ids: Vec<String>,
 ) -> Result<WhistleProfile, String> {
-    let dir = data_dir(&app);
-    let mut st = store::load(&dir)?;
-    let marks: Vec<ProgressMark> = st
-        .progress
-        .iter()
-        .map(|p| ProgressMark {
-            profile_id: p.profile_id.clone(),
-            pack_id: p.pack_id.clone(),
-            node_id: p.node_id.clone(),
-            state_reached: p.state_reached.clone(),
-        })
-        .collect();
-    let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
-    let allowed = pack::open_song_ids(&catalog, &marks, &profile_id);
-    drop(catalog);
-    let profile = st
-        .profiles
-        .iter_mut()
-        .find(|p| p.profile_id == profile_id)
-        .ok_or_else(|| "profile not found".to_string())?;
-    profile.lesson_packs = pack::retain_lesson_packs(&pack_ids, &allowed);
-    let out = profile.clone();
-    store::save(&dir, &st)?;
-    Ok(out)
+    let allowed = {
+        let st = read_store(&app, &state)?;
+        let marks: Vec<ProgressMark> = st
+            .progress
+            .iter()
+            .map(|p| ProgressMark {
+                profile_id: p.profile_id.clone(),
+                pack_id: p.pack_id.clone(),
+                node_id: p.node_id.clone(),
+                state_reached: p.state_reached.clone(),
+            })
+            .collect();
+        let catalog = state.catalog.lock().map_err(|e| e.to_string())?;
+        pack::open_song_ids(&catalog, &marks, &profile_id)
+    };
+    update_store(&app, &state, |st| {
+        let profile = st
+            .profiles
+            .iter_mut()
+            .find(|p| p.profile_id == profile_id)
+            .ok_or_else(|| "profile not found".to_string())?;
+        profile.lesson_packs = pack::retain_lesson_packs(&pack_ids, &allowed);
+        Ok(profile.clone())
+    })
 }
 
 #[tauri::command]
-pub fn select_profile(app: AppHandle, profile_id: String) -> Result<(), String> {
-    let dir = data_dir(&app);
-    let mut st = store::load(&dir)?;
-    if !st.profiles.iter().any(|p| p.profile_id == profile_id) {
-        return Err("profile not found".into());
-    }
-    st.active_profile_id = Some(profile_id);
-    store::save(&dir, &st)
+pub fn select_profile(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    profile_id: String,
+) -> Result<(), String> {
+    update_store(&app, &state, |st| {
+        if !st.profiles.iter().any(|p| p.profile_id == profile_id) {
+            return Err("profile not found".into());
+        }
+        st.active_profile_id = Some(profile_id);
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -331,12 +359,6 @@ fn write_progress(
     state_reached: &str,
     via: &str,
 ) -> Result<(), String> {
-    let dir = data_dir(app);
-    let mut st = store::load(&dir)?;
-    let profile_id = st
-        .active_profile_id
-        .clone()
-        .ok_or_else(|| "no whistle profile".to_string())?;
     let pack_id = state
         .pack
         .lock()
@@ -344,8 +366,14 @@ fn write_progress(
         .manifest
         .id
         .clone();
-    store::set_progress(&mut st, &profile_id, &pack_id, node_id, state_reached, via);
-    store::save(&dir, &st)
+    update_store(app, state, |st| {
+        let profile_id = st
+            .active_profile_id
+            .clone()
+            .ok_or_else(|| "no whistle profile".to_string())?;
+        store::set_progress(st, &profile_id, &pack_id, node_id, state_reached, via);
+        Ok(())
+    })
 }
 
 #[tauri::command]
@@ -409,9 +437,11 @@ pub fn read_book(file: String) -> Result<tauri::ipc::Response, String> {
     Ok(tauri::ipc::Response::new(bytes))
 }
 
-fn active_profile(app: &AppHandle) -> Result<Option<WhistleProfile>, String> {
-    let dir = data_dir(app);
-    let st = store::load(&dir)?;
+fn active_profile(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+) -> Result<Option<WhistleProfile>, String> {
+    let st = read_store(app, state)?;
     let Some(id) = st.active_profile_id else {
         return Ok(None);
     };
@@ -497,7 +527,7 @@ pub fn start_attempt(
         .map_err(|e| e.to_string())?
         .drop_take();
 
-    let profile = active_profile(&app)?;
+    let profile = active_profile(&app, &state)?;
     let break_hz = profile.as_ref().and_then(|p| {
         if p.break_hz > 0.0 {
             Some(p.break_hz)
@@ -523,7 +553,8 @@ pub fn start_attempt(
         recalibrate: args.recalibrate.unwrap_or(false),
     };
 
-    // Prefer live mic; fall back to a silent engine so UI still works in CI
+    // The stream has to be playing before this returns. A failure here
+    // does not mark the part started.
     let session = match MicSession::start(cfg.clone()) {
         Ok(s) => s,
         Err(e) => {
@@ -540,9 +571,18 @@ pub fn start_attempt(
     *state.attempt_target_hz.lock().map_err(|e| e.to_string())? = target;
     *state.mic.lock().map_err(|e| e.to_string())? = Some(session);
 
-    // Mark node started. A review and a single-note spot do not.
-    if args.record.unwrap_or(true) && !args.recalibrate.unwrap_or(false) {
-        let _ = write_progress(&app, &state, &args.node_id, "started", "");
+    // Mark node started only after the stream is playing.
+    // A review and a single-note spot do not.
+    if should_mark_started(
+        true,
+        args.record.unwrap_or(true),
+        args.recalibrate.unwrap_or(false),
+    ) {
+        if let Err(err) = write_progress(&app, &state, &args.node_id, "started", "") {
+            *state.mic.lock().map_err(|e| e.to_string())? = None;
+            *state.attempt_target_hz.lock().map_err(|e| e.to_string())? = None;
+            return Err(err);
+        }
     }
 
     Ok(json!({
@@ -566,20 +606,41 @@ pub fn poll_frame(state: State<'_, AppState>) -> Result<Option<FrameDto>, String
     let Some(session) = mic.as_ref() else {
         return Ok(None);
     };
+    let mic_lost = session.lost().is_some();
     let frame = session.latest_frame.lock().clone();
-    Ok(frame.map(|f| FrameDto {
-        t_ms: f.t_ms,
-        hz: f.hz,
-        rms: f.rms,
-        confidence: f.confidence,
-        near_target: f.near_target,
-        early_break: f.early_break,
-        expected_note: f.expected_note,
-        phrase_index: f.phrase_index,
-        hold_ratio: f.hold_ratio,
-        leak_hole: f.leak_hole,
-        stopped: f.stopped,
-    }))
+    if let Some(f) = frame {
+        return Ok(Some(FrameDto {
+            t_ms: f.t_ms,
+            hz: f.hz,
+            rms: f.rms,
+            confidence: f.confidence,
+            near_target: f.near_target,
+            early_break: f.early_break,
+            expected_note: f.expected_note,
+            phrase_index: f.phrase_index,
+            hold_ratio: f.hold_ratio,
+            leak_hole: f.leak_hole,
+            stopped: f.stopped,
+            mic_lost,
+        }));
+    }
+    if mic_lost {
+        return Ok(Some(FrameDto {
+            t_ms: 0.0,
+            hz: None,
+            rms: 0.0,
+            confidence: 0.0,
+            near_target: false,
+            early_break: false,
+            expected_note: None,
+            phrase_index: 0,
+            hold_ratio: 0.0,
+            leak_hole: None,
+            stopped: false,
+            mic_lost: true,
+        }));
+    }
+    Ok(None)
 }
 
 #[tauri::command]
@@ -620,21 +681,21 @@ pub fn finish_attempt(
     // between attempts and does not write progress for the node on screen.
     if node_id == "first_sound" || recalibrate {
         if let (Some(bh), Some(rf)) = (result.break_hz, result.rms_floor) {
-            let dir = data_dir(&app);
-            let mut st = store::load(&dir)?;
-            if let Some(id) = st.active_profile_id.clone() {
-                if let Some(p) = st.profiles.iter_mut().find(|p| p.profile_id == id) {
-                    p.break_hz = bh;
-                    p.rms_floor = rf;
-                    p.cal_as_of = chrono::Utc::now().to_rfc3339();
+            update_store(&app, &state, |st| {
+                if let Some(id) = st.active_profile_id.clone() {
+                    if let Some(p) = st.profiles.iter_mut().find(|p| p.profile_id == id) {
+                        p.break_hz = bh;
+                        p.rms_floor = rf;
+                        p.cal_as_of = chrono::Utc::now().to_rfc3339();
+                    }
                 }
-            }
-            store::save(&dir, &st)?;
+                Ok(())
+            })?;
         }
     }
 
     if result.settled && mark_settled.unwrap_or(true) && !recalibrate {
-        let _ = write_progress(&app, &state, &node_id, "settled", "heard");
+        write_progress(&app, &state, &node_id, "settled", "heard")?;
         let (pack_id, cnat_id) = {
             let pack = state.pack.lock().map_err(|e| e.to_string())?;
             (pack.manifest.id.clone(), pack.manifest.cnat_id.clone())
@@ -643,12 +704,12 @@ pub fn finish_attempt(
             let chosen = cnat_fingering
                 .filter(|id| id == "oxxooo" || id == "oxxoxx")
                 .unwrap_or(cnat_id);
-            let dir = data_dir(&app);
-            let mut st = store::load(&dir)?;
-            if let Some(id) = st.active_profile_id.clone() {
-                store::set_cnat(&mut st, &id, &chosen);
-            }
-            store::save(&dir, &st)?;
+            update_store(&app, &state, |st| {
+                if let Some(id) = st.active_profile_id.clone() {
+                    store::set_cnat(st, &id, &chosen);
+                }
+                Ok(())
+            })?;
         }
     }
 
@@ -723,4 +784,17 @@ pub fn grade_samples(cfg: AttemptConfig, samples: &[f32]) -> AttemptResult {
         eng.push_samples(c);
     }
     eng.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_mark_started;
+
+    #[test]
+    fn a_failed_open_does_not_mark_started() {
+        assert!(!should_mark_started(false, true, false));
+        assert!(should_mark_started(true, true, false));
+        assert!(!should_mark_started(true, false, false));
+        assert!(!should_mark_started(true, true, true));
+    }
 }

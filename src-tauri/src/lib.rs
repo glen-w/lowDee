@@ -37,6 +37,7 @@ pub fn run() {
             pack: Mutex::new(pack),
             catalog: Mutex::new(catalog),
             store_dir: Mutex::new(std::path::PathBuf::from(".")),
+            store_gate: Mutex::new(()),
             mic: Mutex::new(None),
             attempt_target_hz: Mutex::new(None),
             last_take: Mutex::new(commands::TakeSlot::default()),

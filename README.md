@@ -39,7 +39,7 @@ Vite serves the webview at `http://localhost:1420`. The window title is Low D. T
 npm run check
 ```
 
-That runs the picture, tones, path, glossary, and ghost tests, `cargo test`, the synthetic fixtures, the trace scorer, and `listen gate`.
+That runs the picture, warm-up figure, tones, path, glossary, ghost, and lyrics tests, the songs ingest tests, `cargo test`, the synthetic fixtures, the trace scorer, and `listen gate`.
 
 ## Listen bench (not in the app)
 

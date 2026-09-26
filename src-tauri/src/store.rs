@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::listen::types::WhistleProfile;
@@ -94,6 +95,29 @@ pub fn save(app_dir: &Path, store: &AppStore) -> Result<(), String> {
     let body = serde_json::to_string_pretty(store).map_err(|e| e.to_string())?;
     fs::write(&tmp, body).map_err(|e| e.to_string())?;
     fs::rename(&tmp, &path).map_err(|e| e.to_string())
+}
+
+fn hold(gate: &Mutex<()>) -> std::sync::MutexGuard<'_, ()> {
+    gate.lock().unwrap_or_else(|err| err.into_inner())
+}
+
+/// Load under `gate`. A migration save, when one is needed, stays inside the lock.
+pub fn read(app_dir: &Path, gate: &Mutex<()>) -> Result<AppStore, String> {
+    let _hold = hold(gate);
+    load(app_dir)
+}
+
+/// Load, change, and save as one critical section. Callers share one gate.
+pub fn update<T>(
+    app_dir: &Path,
+    gate: &Mutex<()>,
+    f: impl FnOnce(&mut AppStore) -> Result<T, String>,
+) -> Result<T, String> {
+    let _hold = hold(gate);
+    let mut store = load(app_dir)?;
+    let out = f(&mut store)?;
+    save(app_dir, &store)?;
+    Ok(out)
 }
 
 pub fn upsert_profile(store: &mut AppStore, profile: WhistleProfile) {
@@ -362,5 +386,65 @@ mod tests {
         assert!(loaded.profiles[0].cnat_fingering.is_none());
         let again = load(&path).unwrap();
         assert_eq!(again.progress[0].profile_id, "p1");
+    }
+
+    #[test]
+    fn two_writers_keep_both_settles() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+        use std::time::Duration;
+
+        let path = dir("race");
+        let mut store = AppStore::default();
+        upsert_profile(&mut store, profile("a"));
+        save(&path, &store).unwrap();
+        let gate = Arc::new(Mutex::new(()));
+        let barrier = Arc::new(Barrier::new(2));
+        let spawn = |node: &str, gate: Arc<Mutex<()>>, barrier: Arc<Barrier>, path: PathBuf| {
+            let node = node.to_string();
+            thread::spawn(move || {
+                barrier.wait();
+                update(&path, &gate, |st| {
+                    set_progress(st, "a", "may-morning-dew", &node, "settled", "heard");
+                    thread::sleep(Duration::from_millis(40));
+                    Ok(())
+                })
+            })
+        };
+        let t1 = spawn("first_sound", gate.clone(), barrier.clone(), path.clone());
+        let t2 = spawn("staircase", gate, barrier, path.clone());
+        t1.join().unwrap().unwrap();
+        t2.join().unwrap().unwrap();
+        let loaded = load(&path).unwrap();
+        let nodes: Vec<_> = loaded
+            .progress
+            .iter()
+            .map(|entry| entry.node_id.as_str())
+            .collect();
+        assert!(nodes.contains(&"first_sound"), "{nodes:?}");
+        assert!(nodes.contains(&"staircase"), "{nodes:?}");
+    }
+
+    #[test]
+    fn a_failed_update_does_not_write() {
+        let path = dir("fail-update");
+        let mut store = AppStore::default();
+        upsert_profile(&mut store, profile("a"));
+        save(&path, &store).unwrap();
+        let gate = Mutex::new(());
+        let err: Result<(), String> = update(&path, &gate, |st| {
+            set_progress(
+                st,
+                "a",
+                "may-morning-dew",
+                "first_sound",
+                "settled",
+                "heard",
+            );
+            Err("the record was not saved".into())
+        });
+        assert!(err.is_err(), "{err:?}");
+        let loaded = load(&path).unwrap();
+        assert!(loaded.progress.is_empty());
     }
 }

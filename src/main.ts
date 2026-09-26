@@ -41,6 +41,7 @@ import {
   joinedSong,
   lessonSetHtml,
   menuKindFor,
+  hornHandoff,
   practiceNavHtml,
   primaryHears,
   resumeIndex as firstUnsettledIndex,
@@ -66,6 +67,7 @@ interface FrameDto {
   hold_ratio: number;
   leak_hole: number | null;
   stopped?: boolean;
+  mic_lost?: boolean;
 }
 
 class App {
@@ -111,7 +113,7 @@ class App {
   beatElapsed = 0;
   warmTimer: number | null = null;
   warmView: "intro" | "run" | "done" | null = null;
-  page: "sitting" | "glossary" | "shelf" | "about" | "desk" | "settings" = "sitting";
+  page: "sitting" | "glossary" | "shelf" | "about" | "desk" | "settings" | "name" = "sitting";
   catalog: CatalogView = { shelf_open: false, desk_open: false, packs: [], desk: [], refused: [] };
   ghost: GhostTrace | null = null;
   warmWhistle = false;
@@ -126,6 +128,7 @@ class App {
   glossaryPausedWarm = false;
   settingsPausedWarm = false;
   finishing = false;
+  pollMisses = 0;
   advanceTimer: number | null = null;
   advanceGen = 0;
 
@@ -301,8 +304,9 @@ class App {
     await this.saveLessonPacks((this.profile.lesson_packs ?? []).filter((pack) => pack !== id));
   }
 
-  async openPack(id: string, renderAfter = true): Promise<void> {
+  async openPack(id: string, renderAfter = true, review = true): Promise<void> {
     this.cancelAdvance();
+    await this.leaveAttempt();
     await invoke("open_pack", { packId: id });
     this.pack = await invoke<Pack>("get_pack");
     this.catalog = await invoke<CatalogView>("get_catalog");
@@ -327,7 +331,7 @@ class App {
     this.recalibrating = false;
     this.page = "sitting";
     await this.loadSheet();
-    if (this.warmed) this.beginReview();
+    if (review && this.warmed) this.beginReview();
     if (renderAfter) this.render();
   }
 
@@ -375,6 +379,11 @@ class App {
     if (this.page === "settings") {
       root.innerHTML = this.settingsHtml();
       this.bindSettings();
+      return;
+    }
+    if (this.page === "name") {
+      root.innerHTML = this.nameHornHtml();
+      this.bindNameHorn();
       return;
     }
     if (!this.profile) {
@@ -616,16 +625,19 @@ class App {
   };
 
   bindGlossaryOpen(): void {
-    document.querySelector("#glossary-open")?.addEventListener("click", () => this.openGlossary());
+    document.querySelector("#glossary-open")?.addEventListener("click", () => {
+      void this.openGlossary();
+    });
   }
 
-  openGlossary(): void {
+  async openGlossary(): Promise<void> {
     this.cancelAdvance();
     this.glossaryPausedWarm = false;
     if (this.warmStarted && !this.warmed && !this.warmPaused) {
       this.toggleWarmPause();
       this.glossaryPausedWarm = true;
     }
+    await this.leaveAttempt();
     this.glossaryQuery = "";
     this.page = "glossary";
     this.render();
@@ -644,10 +656,12 @@ class App {
   }
 
   bindSettingsOpen(): void {
-    document.querySelector("#settings-open")?.addEventListener("click", () => this.openSettings());
+    document.querySelector("#settings-open")?.addEventListener("click", () => {
+      void this.openSettings();
+    });
   }
 
-  openSettings(): void {
+  async openSettings(): Promise<void> {
     if (!this.profile) return;
     this.cancelAdvance();
     this.settingsPausedWarm = false;
@@ -655,7 +669,15 @@ class App {
       this.toggleWarmPause();
       this.settingsPausedWarm = true;
     }
+    await this.leaveAttempt();
     this.page = "settings";
+    this.render();
+  }
+
+  async showAway(page: "about" | "shelf" | "desk"): Promise<void> {
+    this.cancelAdvance();
+    await this.leaveAttempt();
+    this.page = page;
     this.render();
   }
 
@@ -776,8 +798,7 @@ class App {
   bindObjectCard(): void {
     this.bindGlossaryOpen();
     document.querySelector("#about-open")?.addEventListener("click", () => {
-      this.page = "about";
-      this.render();
+      void this.showAway("about");
     });
     document.querySelectorAll<HTMLButtonElement>("[data-horn]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -933,6 +954,102 @@ class App {
       return `${line}. This whistle has warmed`;
     }
     return line;
+  }
+
+  nameHornHtml(): string {
+    return `
+      <div class="app-shell">
+        <div class="topbar">
+          <p class="eyebrow">This horn</p>
+          <button type="button" class="ghost" id="name-back">Back</button>
+        </div>
+        <h1>Name the whistle</h1>
+        <p class="lede">This one keeps its own progress. The sitting starts at its first unsettled part.</p>
+        <div class="card">
+          <div class="field">
+            <label for="label">Nickname</label>
+            <input id="label" placeholder="this horn" value="this horn" />
+          </div>
+          <div class="field">
+            <label for="reads">Do you read music?</label>
+            <select id="reads">${optionList(READS, "no")}</select>
+          </div>
+          <div class="field">
+            <label for="background">Musical background</label>
+            <select id="background">${optionList(BACKGROUND, "none")}</select>
+          </div>
+          <p class="meta" id="name-error"></p>
+          <div class="row">
+            <button class="primary" id="name-save">Hands and breath</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  bindNameHorn(): void {
+    document.querySelector("#name-back")?.addEventListener("click", () => {
+      this.page = "sitting";
+      this.render();
+    });
+    document.querySelector("#name-save")?.addEventListener("click", () => {
+      void this.saveNewHorn();
+    });
+  }
+
+  async openNameHorn(): Promise<void> {
+    await this.leaveAttempt();
+    this.page = "name";
+    this.render();
+  }
+
+  async saveNewHorn(): Promise<void> {
+    const label =
+      (document.querySelector("#label") as HTMLInputElement | null)?.value.trim() || "this horn";
+    const reads = ((document.querySelector("#reads") as HTMLSelectElement | null)?.value ??
+      "no") as Reads;
+    const background = ((document.querySelector("#background") as HTMLSelectElement | null)
+      ?.value ?? "none") as Background;
+    const warmedBefore = this.warmed;
+    await this.leaveAttempt();
+    try {
+      this.profile = await invoke<WhistleProfile>("save_profile", {
+        args: { label, reads, background },
+      });
+    } catch {
+      const line = document.querySelector("#name-error");
+      if (line) line.textContent = RECORD_LINE;
+      return;
+    }
+    this.store = await invoke<AppStore>("get_store");
+    this.catalog = await invoke<CatalogView>("get_catalog");
+    await this.settleHorn(true, warmedBefore);
+  }
+
+  async settleHorn(fresh: boolean, warmedBefore: boolean): Promise<void> {
+    await this.openPack(this.resumePackId(), false, false);
+    const handoff = hornHandoff({
+      fresh,
+      warmedThisSitting: warmedBefore,
+      nodeIds: this.pack.manifest.node_ids,
+      progress: this.ownedProgress(),
+    });
+    this.nodeIndex = handoff.nodeIndex;
+    this.stairIndex = 0;
+    this.phraseIndex = 0;
+    this.wantOctave = false;
+    this.warmed = !handoff.showWarmup;
+    if (handoff.showWarmup) {
+      this.warmStarted = false;
+      this.warmAt = 0;
+      this.warmPaused = false;
+      this.beatElapsed = 0;
+      this.warmView = null;
+      this.reviewing = false;
+      this.reviewDone = false;
+    } else {
+      this.beginReview();
+    }
+    this.render();
   }
 
   settingsHtml(): string {
@@ -1352,26 +1469,19 @@ class App {
     this.bindGlossaryOpen();
     this.bindSettingsOpen();
     document.querySelector("#about-open")?.addEventListener("click", () => {
-      this.cancelAdvance();
-      this.page = "about";
-      this.render();
+      void this.showAway("about");
     });
     document.querySelector("#shelf-open")?.addEventListener("click", () => {
-      this.cancelAdvance();
-      this.page = "shelf";
-      this.render();
+      void this.showAway("shelf");
     });
     document.querySelector("#desk-open")?.addEventListener("click", () => {
-      this.cancelAdvance();
-      this.page = "desk";
-      this.render();
+      void this.showAway("desk");
     });
     document.querySelector("#path-back")?.addEventListener("click", () => {
       void this.openPack(this.resumePackId());
     });
     document.querySelector("#another-horn")?.addEventListener("click", () => {
-      this.profile = null;
-      this.render();
+      void this.openNameHorn();
     });
     document.querySelector("#horn-select")?.addEventListener("change", (event) => {
       void this.useHorn((event.target as HTMLSelectElement).value);
@@ -2176,23 +2286,31 @@ class App {
         record: !(this.reviewing || this.isolating),
       };
       // Tauri 2: flatten or nest? Our command expects `args: StartAttemptArgs`
-      const res = await invoke<{ ok: boolean; mic: boolean; target_hz?: number }>(
-        "start_attempt",
-        { args },
-      );
-      if (!res.mic) {
+      try {
+        const res = await invoke<{ ok: boolean; mic: boolean; target_hz?: number }>(
+          "start_attempt",
+          { args },
+        );
+        if (!res.mic) {
+          this.recalibrating = false;
+          this.listenState = "idle";
+          this.liveFrame = null;
+          this.remark = remarkFor(this.pack.remarks, "couldnt_hear", this.profile);
+          this.render();
+          return;
+        }
+        this.frozenTarget = res.target_hz ?? this.profile?.break_hz ?? null;
+        this.liveFrame = null;
+        this.listenState = "sounding";
+        this.render();
+        this.startPoll();
+      } catch {
         this.recalibrating = false;
         this.listenState = "idle";
         this.liveFrame = null;
-        this.remark = remarkFor(this.pack.remarks, "couldnt_hear", this.profile);
+        this.remark = RECORD_LINE;
         this.render();
-        return;
       }
-      this.frozenTarget = res.target_hz ?? this.profile?.break_hz ?? null;
-      this.liveFrame = null;
-      this.listenState = "sounding";
-      this.render();
-      this.startPoll();
       return;
     }
     if (this.listenState === "wait" || this.listenState === "sounding") {
@@ -2202,10 +2320,17 @@ class App {
 
   startPoll(): void {
     this.stopPoll();
+    this.pollMisses = 0;
     this.pollTimer = window.setInterval(async () => {
       try {
         const frame = await invoke<FrameDto | null>("poll_frame");
+        this.pollMisses = 0;
         if (!frame) return;
+        if (frame.mic_lost) {
+          this.stopPoll();
+          void this.onMicLost();
+          return;
+        }
         this.liveFrame = frame;
         if (frame.hz != null) this.listenState = "sounding";
         if (this.showHold()) {
@@ -2232,9 +2357,19 @@ class App {
           void this.finish();
         }
       } catch {
-        /* ignore */
+        this.pollMisses += 1;
+        if (this.pollMisses >= 4) {
+          this.stopPoll();
+          void this.onMicLost();
+        }
       }
     }, 120);
+  }
+
+  async onMicLost(): Promise<void> {
+    await this.leaveAttempt();
+    this.remark = remarkFor(this.pack.remarks, "couldnt_hear", this.profile);
+    this.render();
   }
 
   stopPoll(): void {
@@ -2332,6 +2467,18 @@ class App {
       gen === this.advanceGen && result.settled && !wasRecal && !this.reviewing && !spot;
     this.render();
     if (walk) this.scheduleAdvance();
+    } catch {
+      try {
+        await invoke("drop_attempt");
+      } catch {
+        /* microphone already closed */
+      }
+      this.recalibrating = false;
+      this.listenState = "idle";
+      this.liveFrame = null;
+      this.frozenTarget = null;
+      this.remark = RECORD_LINE;
+      this.render();
     } finally {
       this.finishing = false;
     }
@@ -2558,12 +2705,14 @@ class App {
   }
 
   async useHorn(profileId: string): Promise<void> {
-    if (!profileId) return;
+    if (!profileId || profileId === this.profile?.profile_id) return;
+    const warmedBefore = this.warmed;
+    await this.leaveAttempt();
     await invoke("select_profile", { profileId });
     this.store = await invoke<AppStore>("get_store");
     this.catalog = await invoke<CatalogView>("get_catalog");
     this.profile = this.store.profiles.find((p) => p.profile_id === profileId) ?? null;
-    await this.openPack(this.resumePackId());
+    await this.settleHorn(false, warmedBefore);
   }
 
   playPulse(): void {
@@ -2672,6 +2821,8 @@ const AUTO_ADVANCE: Array<[string, string]> = [
   ["highlight", "Move on, I’ll start it"],
   ["off", "Stay here"],
 ];
+
+const RECORD_LINE = "The practice record could not be saved.";
 
 const READS: Array<[Reads, string]> = [
   ["no", "No"],

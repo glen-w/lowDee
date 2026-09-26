@@ -51,11 +51,11 @@ A later sitting skips the card. It starts at the warm-up, then the first unsettl
 - Resume on the first unsettled node of the earliest open pack the next time the app opens. Within that pack the rail still opens any part.
 - After calibration, the practice card shows the frozen target and this whistle’s break, in hertz. Before that, the line says the listen is whether low D is there.
 - Headphones line on the practice card.
-- Glossary, from the name card, the warm-up, and practice. Whistle words, ornaments, and the common tune types. Search, and a jump for each group. Escape or Back returns. Opening it pauses a warm-up that is running.
+- Glossary, from the name card, the warm-up, and practice. Whistle words, ornaments, and the common tune types. Search, and a jump for each group. Escape or Back returns. Opening it pauses a warm-up that is running. Opening the glossary, settings, the shelf, the desk, or this tube releases the microphone and writes nothing.
 - This tube, from the name card and from practice: a short page in our words for the low D, other keys, and names to hear elsewhere. No audio.
 - Shelf, once *Down by the Salley Gardens* is settled. It lists the path, beginner, improver, and players shelves, including titles that stay on the page only. Open returns to that pack. A Session link opens in the browser.
 - Lesson set, on the practice screen. A dropdown of public-domain song packs the catalog has already opened. Add saves that pack on this whistle. The source of the selected song is named under the list. A saved song opens that pack. Take off removes it. Drills and page-only titles are not in the list. Adding one does not change the path order.
-- Another whistle, from the name card and from practice, when more than one profile is stored.
+- Another whistle, from practice: a name, reading, and background, then that horn’s warm-up and its first unsettled part. A horn already stored can be chosen from the menu without repeating the pass. The first launch still names the whistle on the object card.
 - Reading and background are asked when the whistle is named, and changed from Settings. They are not on the practice card. They change the pictures and the remark. They do not move the break.
 - Recalibrate is on Settings, once a break is stored and this sitting’s warm-up is done. It is the same low-D hold. The target of an attempt already open does not move. When a later low hold sits outside the window, the card says the whistle has warmed. There is no needle.
 - A tune on the table, once *The May Morning Dew* is settled. One folder from `teacher/`. Back returns to the path.
@@ -70,7 +70,7 @@ A later sitting skips the card. It starts at the warm-up, then the first unsettl
 - RMS as a stand-in for how much air is in the note. The floor is stored with the profile.
 - Evidence for a sealed leak, a held low D, an early break, the octave, a note still on D, a note found, a phrase, tongued restarts, a cut that became a note, a missing tap, a breath that chops a line, a high note that fell back down, a short roll that split, a slide that did not arrive, couldn’t hear, and abstain.
 - Calibration written when the first sound settles, and again when Recalibrate settles: `break_hz`, `rms_floor`, `cal_as_of`. Samples are not kept. An attempt already open keeps the target it started with.
-- If the microphone will not open, the screen stays idle, says it could not hear, and does not mark the node started. A heard pitch that differs by exactly one hole marks that hole. Raw pitch on a note at the break or above can remark that it fell back to the low fingering.
+- If the microphone will not open, the screen stays idle, says it could not hear, and does not mark the node started. The part is marked started only after the stream is playing. A stream that dies after that returns the card to idle and leaves the started mark. A heard pitch that differs by exactly one hole marks that hole. Raw pitch on a note at the break or above can remark that it fell back to the low fingering.
 
 ### Content in the door
 
@@ -101,7 +101,7 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 
 ### On the device
 
-- Several profiles can be stored. Saving from the object card activates the new one. Practice can switch the one in hand.
+- Several profiles can be stored. Saving a name activates that whistle. Practice can switch the one in hand, or name another one.
 - Progress is stored per profile and per pack: `started` or `settled`, with `via` `heard` or `stepped`, and a time.
 - No account, no upload, no score on the sounding screen.
 
@@ -118,10 +118,9 @@ Later packs that use the second octave carry fingerings through B5. The door’s
 | --- | --- | --- |
 | Ear before playing | Hear plays a wav when one is there, otherwise the pack’s notes as plain tones, and then the staff may appear. When the wav is there, Hear is the primary action until it has played once. When the book files are on this machine, the door’s cut, tap, roll, and octave play those recordings ahead of the wav | Phrase wavs and cut, tap, and roll demos are not in `ref/` yet, so without the book those steps stay playable without a whistled model. The hole picture still shows. |
 | Ornaments on the air | Marks are drawn on the phrase and passed into the attempt when the node grades them. The moving hole is marked on that note. A cut on a later pack waits until the door’s cut has settled. | Phrase wavs and demos are still absent, so Hear plays the notes. |
-| Several whistles | The practice screen can switch the whistle in hand, and the name card can pick one already stored. Reading and background can be changed from Settings. | A new whistle is still named on the object card. |
 | Early-break remark during the hold | The pill can show it as soon as a frame latches | The attempt finishes when they stop, or on I’m done. The target does not move. |
 | `content_hash` | The loader checks sha256 of the manifest identity, the nodes, and the content files that are present | A mismatch refuses the pack. |
-| Tests | Pitch, pack load and hash, a foreign key, an unknown note, rights, a page-only tune, a brought file the app will not ship, a piano MIDI shifted onto the whistle, the chain and the shelf, a bad teacher folder that does not drop the door, store round-trip, `pack_id` migration, C natural on one whistle, a corrupt file set aside, a heard settle kept, early-break target freeze, phrase order, breath gap, one-hole leak, ornament abstain, a short cut that settles, a phrase ghost, a warm hold, a mark on a phrase, a cracked octave E, and the two `bench/takes/` sidecars. Picture, path, glossary, and ghost tests in the webview. The gate binary asserts the synthetic protocol. | No automated test drives the Tauri window: object card, warm-up, or practice. |
+| Tests | Pitch, pack load and hash, a foreign key, an unknown note, rights, a page-only tune, a brought file the app will not ship, a piano MIDI shifted onto the whistle, the chain and the shelf, a bad teacher folder that does not drop the door, store round-trip, two writers keeping both settles, a failed open that does not mark started, `pack_id` migration, C natural on one whistle, a corrupt file set aside, a heard settle kept, early-break target freeze, phrase order, breath gap, one-hole leak, ornament abstain, a short cut that settles, a phrase ghost, a warm hold, a mark on a phrase, a cracked octave E, and the two `bench/takes/` sidecars. Picture, path (including a new-horn handoff), glossary, and ghost tests in the webview. The gate binary asserts the synthetic protocol. | No automated test drives the Tauri window: object card, warm-up, or practice. |
 
 ## Ahead
 

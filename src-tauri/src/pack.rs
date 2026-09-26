@@ -1532,7 +1532,11 @@ mod tests {
 
     #[test]
     fn the_staircase_opens_after_the_door_and_the_shelf_after_salley() {
-        let cat = load_catalog(&catalog_roots()).expect("catalog");
+        let pack_root = resolve_pack_dir()
+            .parent()
+            .expect("pack root")
+            .to_path_buf();
+        let cat = load_catalog(&[pack_root]).expect("catalog");
         let door = cat
             .packs
             .iter()
