@@ -916,7 +916,9 @@ mod tests {
 
     #[test]
     fn write_content_hashes() {
-        if std::env::var_os("LOWD_WRITE_HASH").is_none() && std::env::var_os("LOWD_PRINT_HASH").is_none() {
+        if std::env::var_os("LOWD_WRITE_HASH").is_none()
+            && std::env::var_os("LOWD_PRINT_HASH").is_none()
+        {
             return;
         }
         let door = resolve_pack_dir();

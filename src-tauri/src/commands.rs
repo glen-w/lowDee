@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-pub use crate::listen::attempt::{AttemptConfig, AttemptEngine, AttemptMode, AttemptResult, TakeSlot};
+pub use crate::listen::attempt::{
+    AttemptConfig, AttemptEngine, AttemptMode, AttemptResult, TakeSlot,
+};
 use crate::listen::mic::MicSession;
 use crate::listen::ornaments::GestureKind;
 use crate::listen::types::{Background, NoteName, Reads, WhistleProfile};

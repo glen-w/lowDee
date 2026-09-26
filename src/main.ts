@@ -749,7 +749,7 @@ class App {
   primaryHearsNow(): boolean {
     if (this.isolating || this.isPage()) return false;
     return primaryHears({
-      hasRef: this.refReady === true,
+      hasRef: this.refReady !== false && !!this.refPath(),
       heard: this.modelHeard,
       playing: this.hearAudio != null && this.hearKind === "model",
       inAttempt:
@@ -1267,6 +1267,7 @@ class App {
     if (rel) {
       try {
         const ok = await invoke<boolean>("ref_available", { relative: rel });
+        this.refReady = ok;
         if (ok) {
           this.toneGuide = false;
           if (this.isOrnament()) rate = 1;
@@ -1274,11 +1275,15 @@ class App {
           return;
         }
       } catch {
-        /* the notes still play */
+        this.refReady = false;
       }
     }
     const events = this.toneEvents();
-    if (!events) return;
+    if (!events) {
+      this.refReady = false;
+      this.render();
+      return;
+    }
     if (this.isOrnament()) rate = 1;
     this.toneGuide = true;
     await this.playToneEvents(events, rate);

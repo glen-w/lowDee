@@ -572,7 +572,10 @@ impl AttemptEngine {
                 counts.push((note, 1));
             }
         }
-        counts.into_iter().max_by_key(|(_, n)| *n).map(|(note, _)| note)
+        counts
+            .into_iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|(note, _)| note)
     }
 
     fn take_wav(&self, evidence: Evidence) -> Option<TakeWav> {
@@ -873,7 +876,11 @@ impl AttemptEngine {
             return false;
         }
         let base = self.cfg.break_hz.unwrap_or(DEFAULT_LOW_D_HZ);
-        let voiced: Vec<_> = self.frames.iter().filter(|frame| frame.hz.is_some()).collect();
+        let voiced: Vec<_> = self
+            .frames
+            .iter()
+            .filter(|frame| frame.hz.is_some())
+            .collect();
         if voiced.len() < 3 {
             return false;
         }
@@ -988,6 +995,8 @@ mod tests {
         assert_eq!(ordered.evidence, Evidence::PhraseOk, "{ordered:?}");
         assert!(ordered.settled);
         assert!((ordered.target_hz.unwrap() - hz).abs() < 1.0);
+        assert!(ordered.take_wav.is_some());
+        assert!(ordered.isolate_note.is_none());
 
         let mut scramble = Vec::new();
         for sem in [5, 2, 0, 4] {
@@ -1119,6 +1128,7 @@ mod tests {
             result.frames.len()
         );
         assert!(result.settled);
+        assert!(result.take_wav.is_none());
     }
 
     #[test]
@@ -1459,6 +1469,34 @@ mod tests {
         );
         assert_eq!(result.evidence, Evidence::StillD, "{result:?}");
         assert_eq!(result.isolate_note.as_deref(), Some("E4"));
+        assert!(!result.settled);
+    }
+
+    #[test]
+    fn a_one_hole_miss_in_a_phrase_names_that_note() {
+        let hz = DEFAULT_LOW_D_HZ;
+        let mut samples = synth::sine(hz, 44100, 0.4, 0.35);
+        let fs = hz * 2f32.powf(4.0 / 12.0);
+        samples.extend(synth::sine(fs, 44100, 0.8, 0.35));
+        let result = run(
+            AttemptConfig {
+                sample_rate: 44100,
+                hop_ms: 30.0,
+                mode: AttemptMode::Phrase {
+                    notes: vec![NoteName::D4, NoteName::E4],
+                    breaths: vec![],
+                    marks: vec![],
+                },
+                break_hz: Some(hz),
+                rms_floor: Some(0.05),
+                recalibrate: false,
+            },
+            &samples,
+        );
+        assert_eq!(result.evidence, Evidence::Sealed, "{result:?}");
+        assert_eq!(result.isolate_note.as_deref(), Some("E4"));
+        assert!(result.take_wav.is_some());
+        assert!((result.target_hz.unwrap() - hz).abs() < 1.0);
         assert!(!result.settled);
     }
 }
